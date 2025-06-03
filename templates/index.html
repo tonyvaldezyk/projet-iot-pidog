@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Télécommande Chien Robot - Joystick Stylé</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="remote-joystick">
+        <h1>Joystick PACO-X1</h1>
+        <div class="joystick-container" id="joystick">
+            <div class="joystick-base"></div>
+            <svg class="intensity-gauge" width="320" height="320">
+                <circle id="gauge-bg" cx="160" cy="160" r="120" stroke="#6366f122" stroke-width="18" fill="none"/>
+                <circle id="gauge" cx="160" cy="160" r="120" stroke="#6366f1" stroke-width="18" fill="none" stroke-linecap="round" stroke-dasharray="753.98" stroke-dashoffset="753.98"/>
+            </svg>
+            <div class="joystick-knob" id="knob">+</div>
+        </div>
+        <div class="status-panel">
+            <div>Angle : <span id="angle">0</span>°</div>
+            <div>Intensité : <span id="intensity">0</span></div>
+            <div id="status">En attente de commande...</div>
+        </div>
+    </div>
+    <script>
+        const joystick = document.getElementById('joystick');
+        const knob = document.getElementById('knob');
+        const angleSpan = document.getElementById('angle');
+        const intensitySpan = document.getElementById('intensity');
+        const statusDiv = document.getElementById('status');
+        const gauge = document.getElementById('gauge');
+        const size = 320;
+        const radius = size / 2;
+        const knobRadius = 45;
+        let dragging = false;
+        let lastSendTime = 0;
+        const SEND_INTERVAL = 50; // Intervalle minimum entre les envois (en ms)
+        let lastAngle = 0;
+        let lastIntensity = 0;
+        let commandTimeout = null;
+
+        function sendJoystick(angle, intensity) {
+            const now = Date.now();
+            
+            // Ne pas envoyer si l'intervalle minimum n'est pas écoulé
+            if (now - lastSendTime < SEND_INTERVAL) {
+                return;
+            }
+            
+            // Ne pas envoyer si les valeurs n'ont pas changé significativement
+            if (Math.abs(angle - lastAngle) < 5 && Math.abs(intensity - lastIntensity) < 0.05) {
+                return;
+            }
+            
+            lastSendTime = now;
+            lastAngle = angle;
+            lastIntensity = intensity;
+
+            statusDiv.textContent = `Commande envoyée : angle ${angle}°, intensité ${intensity}`;
+            fetch('/command', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    angle: angle, 
+                    intensity: intensity 
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    statusDiv.textContent = data.message;
+                } else {
+                    statusDiv.textContent = 'Erreur: ' + data.message;
+                }
+            })
+            .catch((error) => {
+                statusDiv.textContent = 'Erreur de communication';
+                console.error('Erreur:', error);
+            });
+        }
+
+        function setKnob(x, y) {
+            knob.style.left = `${x}px`;
+            knob.style.top = `${y}px`;
+        }
+
+        function setGauge(intensity) {
+            // 2*PI*r = 2*PI*120 = 753.98
+            const max = 753.98;
+            gauge.setAttribute('stroke-dashoffset', max - max * intensity);
+        }
+
+        function resetKnob() {
+            setKnob(radius, radius);
+            angleSpan.textContent = '0';
+            intensitySpan.textContent = '0';
+            setGauge(0);
+            
+            // Envoyer une dernière commande pour arrêter le robot
+            sendJoystick(0, 0);
+            
+            // Annuler tout timeout en cours
+            if (commandTimeout) {
+                clearTimeout(commandTimeout);
+                commandTimeout = null;
+            }
+        }
+
+        function handleMove(clientX, clientY) {
+            const rect = joystick.getBoundingClientRect();
+            let x = clientX - rect.left;
+            let y = clientY - rect.top;
+            let dx = x - radius;
+            let dy = y - radius;
+            let dist = Math.sqrt(dx*dx + dy*dy);
+            let maxDist = radius - knobRadius;
+            if (dist > maxDist) {
+                dx = dx * maxDist / dist;
+                dy = dy * maxDist / dist;
+                dist = maxDist;
+            }
+            setKnob(radius + dx, radius + dy);
+            
+            // Calcul angle (0 = haut, 90 = droite)
+            let angle = Math.atan2(dx, -dy) * 180 / Math.PI;
+            if (angle < 0) angle += 360;
+            let intensity = +(dist / maxDist).toFixed(2);
+            
+            // Mise à jour de l'interface
+            angleSpan.textContent = Math.round(angle);
+            intensitySpan.textContent = intensity;
+            setGauge(intensity);
+            
+            // Envoyer la commande au serveur avec throttling
+            if (commandTimeout) {
+                clearTimeout(commandTimeout);
+            }
+            commandTimeout = setTimeout(() => {
+                sendJoystick(Math.round(angle), intensity);
+            }, SEND_INTERVAL);
+        }
+
+        knob.addEventListener('mousedown', function(e) {
+            dragging = true;
+            knob.classList.add('active');
+        });
+        document.addEventListener('mousemove', function(e) {
+            if (dragging) {
+                handleMove(e.clientX, e.clientY);
+            }
+        });
+        document.addEventListener('mouseup', function(e) {
+            if (dragging) {
+                dragging = false;
+                knob.classList.remove('active');
+                resetKnob();
+            }
+        });
+        // Touch events (mobile)
+        knob.addEventListener('touchstart', function(e) {
+            dragging = true;
+            knob.classList.add('active');
+            e.preventDefault();
+        });
+        document.addEventListener('touchmove', function(e) {
+            if (dragging && e.touches.length === 1) {
+                handleMove(e.touches[0].clientX, e.touches[0].clientY);
+            }
+        });
+        document.addEventListener('touchend', function(e) {
+            if (dragging) {
+                dragging = false;
+                knob.classList.remove('active');
+                resetKnob();
+            }
+        });
+        // Initial position
+        resetKnob();
+    </script>
+</body>
+</html> 

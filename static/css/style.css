@@ -1,0 +1,119 @@
+body {
+    background: linear-gradient(135deg, #e0e7ff 0%, #f8fafc 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Montserrat', Arial, sans-serif;
+}
+
+.remote-joystick {
+    background: rgba(255,255,255,0.7);
+    border-radius: 30px;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.18);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    padding: 40px 30px 30px 30px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    border: 1px solid rgba(255,255,255,0.3);
+}
+
+.remote-joystick h1 {
+    margin-bottom: 30px;
+    color: #2c3e50;
+    letter-spacing: 2px;
+    font-size: 2rem;
+    text-shadow: 0 2px 8px #fff8;
+}
+
+.joystick-container {
+    position: relative;
+    width: 320px;
+    height: 320px;
+    margin-bottom: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.joystick-base {
+    position: absolute;
+    left: 0; top: 0;
+    width: 100%; height: 100%;
+    border-radius: 50%;
+    background: radial-gradient(circle at 60% 40%, #a5b4fc 0%, #dbeafe 100%);
+    box-shadow: 0 0 0 8px #6366f1aa, 0 0 32px 0 #6366f155;
+    z-index: 1;
+}
+
+/* Anneaux concentriques */
+.joystick-base::before, .joystick-base::after {
+    content: '';
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.joystick-base::before {
+    width: 260px; height: 260px;
+    border: 2px solid #6366f133;
+}
+
+.joystick-base::after {
+    width: 200px; height: 200px;
+    border: 2px solid #6366f122;
+}
+
+/* Jauge d'intensité */
+.intensity-gauge {
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%) rotate(-90deg);
+    z-index: 2;
+    pointer-events: none;
+}
+
+.joystick-knob {
+    position: absolute;
+    left: 50%; top: 50%;
+    width: 90px; height: 90px;
+    margin-left: -45px; margin-top: -45px;
+    border-radius: 50%;
+    background: linear-gradient(145deg, #6366f1 60%, #818cf8 100%);
+    box-shadow: 0 4px 24px 0 #6366f188, 0 1.5px 8px #fff8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 2.2rem;
+    user-select: none;
+    cursor: pointer;
+    transition: background 0.2s, box-shadow 0.2s, left 0.15s, top 0.15s;
+    z-index: 3;
+    border: 2.5px solid #fff;
+}
+
+.joystick-knob.active {
+    background: linear-gradient(145deg, #818cf8 60%, #6366f1 100%);
+    box-shadow: 0 8px 32px 0 #6366f1cc, 0 2px 12px #fff8;
+}
+
+.status-panel {
+    margin-top: 20px;
+    color: #2c3e50;
+    font-size: 1.1rem;
+    text-align: center;
+    background: rgba(255,255,255,0.5);
+    border-radius: 12px;
+    padding: 12px 24px;
+    box-shadow: 0 2px 8px #6366f111;
+}
+
+.status-panel span {
+    font-weight: bold;
+    color: #6366f1;
+} 
