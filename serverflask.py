@@ -1,11 +1,56 @@
 import datetime
+import os
+import signal
+import sys
 from flask import Flask, render_template, request, jsonify
 from pidog import Pidog
 from math import pi, atan2, sqrt, cos, sin
 import time
+import subprocess
+from gpiozero import Device
+from gpiozero.pins.pigpio import PiGPIOFactory
 
 app = Flask(__name__)
-my_dog = Pidog()
+my_dog = None
+
+def cleanup_gpio():
+    global my_dog
+    try:
+        if my_dog is not None:
+            my_dog.close()
+            my_dog = None
+    except Exception as e:
+        print(f"Error during cleanup: {e}")
+
+def signal_handler(sig, frame):
+    print('\nExiting...')
+    cleanup_gpio()
+    sys.exit(0)
+
+# Set up signal handlers
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
+
+try:
+    # Try to use pigpio factory which handles GPIO better
+    Device.pin_factory = PiGPIOFactory()
+    my_dog = Pidog()
+    print("Pidog initialized successfully!")
+except Exception as e:
+    print(f"Error initializing Pidog: {e}")
+    print("Trying to kill any conflicting processes...")
+    try:
+        subprocess.run(['sudo', 'pkill', '-f', 'pigpiod'], check=False)
+        time.sleep(1)
+        subprocess.run(['sudo', 'pigpiod'], check=True)
+        time.sleep(1)
+        Device.pin_factory = PiGPIOFactory()
+        my_dog = Pidog()
+        print("Pidog initialized successfully after cleanup!")
+    except Exception as e2:
+        print(f"Failed to initialize Pidog after cleanup: {e2}")
+        print("Please check if another program is using the GPIO pins.")
+        print("You can try running 'sudo pkill -f pigpiod' and then restart the program.")
 
 # Variables pour la gestion de la vitesse progressive
 last_command = None
@@ -101,4 +146,9 @@ def handle_command():
     })
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, debug=True)
+    if my_dog is None:
+        print("Warning: Pidog initialization failed. The application will start but robot functions won't work.")
+    try:
+        app.run(host='0.0.0.0', port=8080, debug=True)
+    finally:
+        cleanup_gpio()
