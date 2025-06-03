@@ -62,6 +62,10 @@ def map_value(x, in_min, in_max, out_min, out_max):
     return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
 
 def calculate_direction(angle, intensity):
+    # Zone morte augmentée pour éviter les vibrations
+    if intensity < 0.25:
+        return "stop", 0
+    
     # Convertir l'angle en radians
     angle_rad = angle * pi / 180
     
@@ -69,16 +73,12 @@ def calculate_direction(angle, intensity):
     x = intensity * cos(angle_rad)
     y = intensity * sin(angle_rad)
     
-    # Déterminer la direction principale
-    if abs(x) < 0.2 and abs(y) < 0.2:
-        return "stop", 0
-    
     # Déterminer la direction principale avec des zones de transition
     if abs(x) > abs(y):
         if x > 0:
-            return "turn right", intensity
+            return "turn_right", intensity
         else:
-            return "turn left", intensity
+            return "turn_left", intensity
     else:
         if y > 0:
             return "forward", intensity
@@ -102,6 +102,13 @@ def hello():
 def handle_command():
     global last_command, last_speed, last_command_time
     
+    # Vérifier que le robot n'est pas occupé (évite les vibrations)
+    if my_dog and not my_dog.is_legs_done():
+        return jsonify({
+            'status': 'busy',
+            'message': 'Robot occupé'
+        })
+    
     data = request.get_json()
     angle = data.get('angle', 0)
     intensity = data.get('intensity', 0)
@@ -109,41 +116,61 @@ def handle_command():
     # Calculer la direction et la vitesse cible
     direction, target_speed = calculate_direction(angle, intensity)
     
-    # Convertir la vitesse en pourcentage (0-100)
-    target_speed_percent = int(target_speed * 100)
+    # Mapping vers des vitesses efficaces (75-98%) pour éviter les mouvements faibles
+    if direction == "stop":
+        smooth_speed = 0
+    else:
+        # Vitesses optimisées : 75-98% au lieu de 0-100%
+        target_speed_optimal = int(75 + (target_speed * 23))  # 75 + (0-1 * 23) = 75-98%
+        
+        # Calculer la vitesse progressive
+        current_time = time.time()
+        last_command_time = current_time
+        smooth_speed = int(get_smooth_speed(target_speed_optimal, last_speed))
+        last_speed = smooth_speed
     
-    # Calculer la vitesse progressive
-    current_time = time.time()
-    time_diff = current_time - last_command_time
-    last_command_time = current_time
-    
-    # Appliquer la vitesse progressive
-    smooth_speed = int(get_smooth_speed(target_speed_percent, last_speed))
-    last_speed = smooth_speed
+    # Liste des directions/actions valides
+    valid_directions = ["forward", "backward", "turn_left", "turn_right", "stop"]
     
     # Exécuter la commande
-    if direction != last_command:
-        # Si la direction change, arrêter d'abord
-        my_dog.do_action('stop')
-        time.sleep(0.1)  # Petit délai pour assurer l'arrêt
+    if direction not in valid_directions:
+        return jsonify({
+            'status': 'error',
+            'message': f'Commande {direction} non reconnue.'
+        })
     
-    if direction == "forward":
-        my_dog.do_action('forward', speed=smooth_speed)
-    elif direction == "backward":
-        my_dog.do_action('backward', speed=smooth_speed)
-    elif direction == "turn left":
-        my_dog.do_action('turn_left', speed=smooth_speed)
-    elif direction == "turn right":
-        my_dog.do_action('turn_right', speed=smooth_speed)
-    elif direction == "stop":
-        my_dog.do_action('stop')
-    
-    last_command = direction
-    
-    return jsonify({
-        'status': 'success',
-        'message': f'Commande {direction} exécutée avec vitesse {smooth_speed}%'
-    })
+    try:
+        if direction != last_command and last_command not in [None, "stop"]:
+            # Si la direction change, arrêter d'abord
+            my_dog.body_stop()
+            my_dog.wait_all_done()
+            time.sleep(0.05)  # Délai réduit mais suffisant
+        
+        # Exécuter l'action
+        if direction == "forward":
+            my_dog.do_action('forward', speed=smooth_speed)
+        elif direction == "backward":
+            my_dog.do_action('backward', speed=smooth_speed)
+        elif direction == "turn_left":
+            my_dog.do_action('turn_left', speed=smooth_speed)
+        elif direction == "turn_right":
+            my_dog.do_action('turn_right', speed=smooth_speed)
+        elif direction == "stop":
+            my_dog.body_stop()
+            my_dog.wait_all_done()
+        
+        last_command = direction
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'{direction} - vitesse {smooth_speed}%'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Erreur: {str(e)}'
+        })
 
 if __name__ == '__main__':
     if my_dog is None:
