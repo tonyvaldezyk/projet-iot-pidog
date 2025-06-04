@@ -36,69 +36,27 @@
             text-shadow: 0 2px 8px rgba(255,255,255,0.5);
         }
 
-        .joystick-container {
-            position: relative;
-            width: 280px;
-            height: 280px;
-            margin-bottom: 25px;
+        .button-panel {
             display: flex;
-            align-items: center;
             justify-content: center;
+            margin: 10px 0;
         }
-
-        .joystick-base {
-            position: absolute;
-            left: 0; top: 0;
-            width: 100%; height: 100%;
-            border-radius: 50%;
-            background: radial-gradient(circle at 60% 40%, #a5b4fc 0%, #dbeafe 100%);
-            box-shadow: 0 0 0 6px #6366f1aa, 0 0 25px 0 #6366f155;
-            z-index: 1;
-        }
-
-        .joystick-base::before, .joystick-base::after {
-            content: '';
-            position: absolute;
-            left: 50%; top: 50%;
-            transform: translate(-50%, -50%);
-            border-radius: 50%;
-            pointer-events: none;
-        }
-
-        .joystick-base::before {
-            width: 220px; height: 220px;
-            border: 2px solid #6366f133;
-        }
-
-        .joystick-base::after {
-            width: 160px; height: 160px;
-            border: 2px solid #6366f122;
-        }
-
-        .joystick-knob {
-            position: absolute;
-            left: 50%; top: 50%;
-            width: 70px; height: 70px;
-            margin-left: -35px; margin-top: -35px;
-            border-radius: 50%;
-            background: linear-gradient(145deg, #6366f1 60%, #818cf8 100%);
-            box-shadow: 0 4px 20px 0 #6366f188, 0 1px 6px rgba(255,255,255,0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .ctrl-btn {
+            background: linear-gradient(135deg, #6366f1 60%, #818cf8 100%);
             color: #fff;
-            font-size: 1.8rem;
-            user-select: none;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            padding: 18px 32px;
+            margin: 0 10px;
             cursor: pointer;
-            transition: all 0.2s ease;
-            z-index: 3;
-            border: 2px solid #fff;
+            box-shadow: 0 2px 8px #6366f133;
+            transition: background 0.2s, transform 0.1s;
         }
-
-        .joystick-knob.active {
-            background: linear-gradient(145deg, #818cf8 60%, #6366f1 100%);
-            box-shadow: 0 6px 25px 0 #6366f1cc, 0 2px 10px rgba(255,255,255,0.6);
-            transform: scale(1.05);
+        .ctrl-btn:active {
+            background: linear-gradient(135deg, #818cf8 60%, #6366f1 100%);
+            transform: scale(0.97);
         }
 
         .status-panel {
@@ -163,214 +121,57 @@
 </head>
 <body>
     <div class="controller">
-        <h1>🐕 PiDog Controller</h1>
-        
-        <div class="joystick-container" id="joystick">
-            <div class="joystick-base"></div>
-            <div class="joystick-knob" id="knob">⚡</div>
-            <div class="direction-indicator" id="direction"></div>
+        <h1>🐕 PiDog Contrôle Simple</h1>
+        <div class="button-panel">
+            <button class="ctrl-btn" id="btn-forward">⬆️ Avancer</button>
         </div>
-        
+        <div class="button-panel">
+            <button class="ctrl-btn" id="btn-left">⬅️ Gauche</button>
+            <button class="ctrl-btn" id="btn-stop">⏹️ Stop</button>
+            <button class="ctrl-btn" id="btn-right">➡️ Droite</button>
+        </div>
+        <div class="button-panel">
+            <button class="ctrl-btn" id="btn-backward">⬇️ Reculer</button>
+        </div>
         <div class="status-panel">
-            <div class="status-row">
-                <span class="status-label">Angle:</span>
-                <span class="status-value" id="angle">0°</span>
-            </div>
-            <div class="status-row">
-                <span class="status-label">Intensité:</span>
-                <span class="status-value" id="intensity">0.00</span>
-            </div>
-            <div class="status-row">
-                <span class="status-label">Direction:</span>
-                <span class="status-value" id="direction-text">STOP</span>
-            </div>
             <div class="status-message" id="status">🔄 En attente de commande...</div>
         </div>
     </div>
 
     <script>
-        const joystick = document.getElementById('joystick');
-        const knob = document.getElementById('knob');
-        const directionIndicator = document.getElementById('direction');
-        const angleSpan = document.getElementById('angle');
-        const intensitySpan = document.getElementById('intensity');
-        const directionSpan = document.getElementById('direction-text');
         const statusDiv = document.getElementById('status');
-        
-        const size = 280;
-        const radius = size / 2;
-        const knobRadius = 35;
-        let dragging = false;
-        let lastSendTime = 0;
-        const SEND_INTERVAL = 500; // Compatible avec votre serveur
-        let lastAngle = 0;
-        let lastIntensity = 0;
-        let commandTimeout = null;
-
-        function sendCommand(angle, intensity) {
-            const now = Date.now();
-            
-            if (now - lastSendTime < SEND_INTERVAL) {
-                return;
-            }
-            
-            if (Math.abs(angle - lastAngle) < 5 && Math.abs(intensity - lastIntensity) < 0.05) {
-                return;
-            }
-            
-            lastSendTime = now;
-            lastAngle = angle;
-            lastIntensity = intensity;
-
-            statusDiv.textContent = `📡 Envoi: angle ${angle}°, intensité ${intensity}`;
-            
-            // Format compatible avec votre serveur Flask actuel
+        function sendDirection(direction) {
+            let kx = 0, ky = 0;
+            const max = 1.0;
+            if (direction === 'forward') ky = max;
+            else if (direction === 'backward') ky = -max;
+            else if (direction === 'left') kx = -max;
+            else if (direction === 'right') kx = max;
+            // stop: kx=0, ky=0
             fetch('/command', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    angle: angle, 
-                    intensity: intensity 
-                })
+                body: JSON.stringify({ kx: kx, ky: ky })
             })
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
                     statusDiv.textContent = `✅ ${data.message}`;
                 } else if (data.status === 'busy') {
-                    statusDiv.textContent = '⏳ Robot occupé...';
+                    statusDiv.textContent = '⏳ Robot occupé, réessai...';
                 } else {
                     statusDiv.textContent = `❌ Erreur: ${data.message}`;
                 }
             })
             .catch((error) => {
                 statusDiv.textContent = '🔴 Erreur de communication';
-                console.error('Erreur:', error);
             });
         }
-
-        function setKnob(x, y) {
-            knob.style.left = `${x}px`;
-            knob.style.top = `${y}px`;
-        }
-
-        function updateInterface(angle, intensity) {
-            angleSpan.textContent = `${Math.round(angle)}°`;
-            intensitySpan.textContent = intensity.toFixed(2);
-            
-            // Déterminer la direction pour l'affichage
-            let direction = "STOP";
-            if (intensity > 0.25) {
-                if (angle >= 315 || angle < 45) {
-                    direction = "FORWARD";
-                } else if (angle >= 45 && angle < 135) {
-                    direction = "TURN RIGHT";
-                } else if (angle >= 135 && angle < 225) {
-                    direction = "BACKWARD";
-                } else if (angle >= 225 && angle < 315) {
-                    direction = "TURN LEFT";
-                }
-            }
-            
-            directionSpan.textContent = direction;
-            
-            // Indicateur de direction
-            if (direction !== "STOP") {
-                directionIndicator.textContent = direction;
-                directionIndicator.classList.add('show');
-            } else {
-                directionIndicator.classList.remove('show');
-            }
-        }
-
-        function resetKnob() {
-            setKnob(radius, radius);
-            updateInterface(0, 0);
-            sendCommand(0, 0);
-            
-            if (commandTimeout) {
-                clearTimeout(commandTimeout);
-                commandTimeout = null;
-            }
-        }
-
-        function handleMove(clientX, clientY) {
-            const rect = joystick.getBoundingClientRect();
-            let x = clientX - rect.left;
-            let y = clientY - rect.top;
-            let dx = x - radius;
-            let dy = y - radius;
-            let dist = Math.sqrt(dx*dx + dy*dy);
-            let maxDist = radius - knobRadius;
-            
-            if (dist > maxDist) {
-                dx = dx * maxDist / dist;
-                dy = dy * maxDist / dist;
-                dist = maxDist;
-            }
-            
-            setKnob(radius + dx, radius + dy);
-            
-            // Calcul angle (0 = haut, 90 = droite) - CORRIGÉ POUR INTUITIVITÉ
-            let angle = Math.atan2(dx, -dy) * 180 / Math.PI;
-            if (angle < 0) angle += 360;
-            let intensity = +(dist / maxDist).toFixed(2);
-            
-            updateInterface(angle, intensity);
-            
-            if (commandTimeout) {
-                clearTimeout(commandTimeout);
-            }
-            commandTimeout = setTimeout(() => {
-                sendCommand(Math.round(angle), intensity);
-            }, SEND_INTERVAL);
-        }
-
-        // Event listeners
-        knob.addEventListener('mousedown', function(e) {
-            dragging = true;
-            knob.classList.add('active');
-            e.preventDefault();
-        });
-
-        document.addEventListener('mousemove', function(e) {
-            if (dragging) {
-                handleMove(e.clientX, e.clientY);
-            }
-        });
-
-        document.addEventListener('mouseup', function(e) {
-            if (dragging) {
-                dragging = false;
-                knob.classList.remove('active');
-                resetKnob();
-            }
-        });
-
-        // Touch events
-        knob.addEventListener('touchstart', function(e) {
-            dragging = true;
-            knob.classList.add('active');
-            e.preventDefault();
-        });
-
-        document.addEventListener('touchmove', function(e) {
-            if (dragging && e.touches.length === 1) {
-                handleMove(e.touches[0].clientX, e.touches[0].clientY);
-                e.preventDefault();
-            }
-        });
-
-        document.addEventListener('touchend', function(e) {
-            if (dragging) {
-                dragging = false;
-                knob.classList.remove('active');
-                resetKnob();
-            }
-        });
-
-        // Position initiale
-        resetKnob();
+        document.getElementById('btn-forward').onclick = () => sendDirection('forward');
+        document.getElementById('btn-backward').onclick = () => sendDirection('backward');
+        document.getElementById('btn-left').onclick = () => sendDirection('left');
+        document.getElementById('btn-right').onclick = () => sendDirection('right');
+        document.getElementById('btn-stop').onclick = () => sendDirection('stop');
     </script>
 </body>
 </html>
