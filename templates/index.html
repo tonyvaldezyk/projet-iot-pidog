@@ -21,7 +21,6 @@
         <div class="status-panel">
             <div>Angle : <span id="angle">0</span>°</div>
             <div>Intensité : <span id="intensity">0</span></div>
-            <div>Vitesse Robot : <span id="robot-speed">0</span>%</div>
             <div id="status">En attente de commande...</div>
         </div>
     </div>
@@ -30,7 +29,6 @@
         const knob = document.getElementById('knob');
         const angleSpan = document.getElementById('angle');
         const intensitySpan = document.getElementById('intensity');
-        const robotSpeedSpan = document.getElementById('robot-speed');
         const statusDiv = document.getElementById('status');
         const gauge = document.getElementById('gauge');
         const size = 320;
@@ -38,29 +36,13 @@
         const knobRadius = 45;
         let dragging = false;
         let lastSendTime = 0;
-        const SEND_INTERVAL = 500; // AUGMENTÉ: 500ms au lieu de 300ms pour éviter les conflits
+        const SEND_INTERVAL = 50; // Intervalle minimum entre les envois (en ms)
         let lastAngle = 0;
         let lastIntensity = 0;
         let commandTimeout = null;
-        let isRobotBusy = false;
-
-        // Fonction pour mapper l'intensité vers des vitesses efficaces (75-98%)
-        function mapToRobotSpeed(intensity) {
-            if (intensity < 0.25) {  // Zone morte augmentée
-                return 0;
-            }
-            // Mapping vers 75-98% pour garantir des mouvements efficaces
-            return Math.round(75 + (intensity * 23)); // 75 + (0-1 * 23) = 75-98%
-        }
 
         function sendJoystick(angle, intensity) {
             const now = Date.now();
-            
-            // Ne pas envoyer si le robot est occupé
-            if (isRobotBusy) {
-                statusDiv.textContent = 'Robot occupé, commande en attente...';
-                return;
-            }
             
             // Ne pas envoyer si l'intervalle minimum n'est pas écoulé
             if (now - lastSendTime < SEND_INTERVAL) {
@@ -68,20 +50,15 @@
             }
             
             // Ne pas envoyer si les valeurs n'ont pas changé significativement
-            if (Math.abs(angle - lastAngle) < 10 && Math.abs(intensity - lastIntensity) < 0.1) {
+            if (Math.abs(angle - lastAngle) < 5 && Math.abs(intensity - lastIntensity) < 0.05) {
                 return;
             }
             
             lastSendTime = now;
             lastAngle = angle;
             lastIntensity = intensity;
-            isRobotBusy = true;
 
-            const robotSpeed = mapToRobotSpeed(intensity);
-            robotSpeedSpan.textContent = robotSpeed;
-            
-            statusDiv.textContent = `Commande envoyée : angle ${angle}°, vitesse ${robotSpeed}%`;
-            
+            statusDiv.textContent = `Commande envoyée : angle ${angle}°, intensité ${intensity}`;
             fetch('/command', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -92,21 +69,13 @@
             })
             .then(response => response.json())
             .then(data => {
-                isRobotBusy = false;
                 if (data.status === 'success') {
                     statusDiv.textContent = data.message;
-                } else if (data.status === 'busy') {
-                    statusDiv.textContent = 'Robot occupé, réessai automatique...';
-                    // Réessayer après un délai si le robot est occupé
-                    setTimeout(() => {
-                        sendJoystick(angle, intensity);
-                    }, 200);
                 } else {
                     statusDiv.textContent = 'Erreur: ' + data.message;
                 }
             })
             .catch((error) => {
-                isRobotBusy = false;
                 statusDiv.textContent = 'Erreur de communication';
                 console.error('Erreur:', error);
             });
@@ -127,7 +96,6 @@
             setKnob(radius, radius);
             angleSpan.textContent = '0';
             intensitySpan.textContent = '0';
-            robotSpeedSpan.textContent = '0';
             setGauge(0);
             
             // Envoyer une dernière commande pour arrêter le robot
@@ -163,10 +131,9 @@
             // Mise à jour de l'interface
             angleSpan.textContent = Math.round(angle);
             intensitySpan.textContent = intensity;
-            robotSpeedSpan.textContent = mapToRobotSpeed(intensity);
             setGauge(intensity);
             
-            // Envoyer la commande au serveur avec throttling amélioré
+            // Envoyer la commande au serveur avec throttling
             if (commandTimeout) {
                 clearTimeout(commandTimeout);
             }
@@ -213,4 +180,4 @@
         resetKnob();
     </script>
 </body>
-</html>
+</html> 
