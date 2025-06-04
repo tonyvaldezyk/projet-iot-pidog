@@ -173,20 +173,16 @@
         
         <div class="status-panel">
             <div class="status-row">
-                <span class="status-label">Position X:</span>
-                <span class="status-value" id="pos-x">0</span>
+                <span class="status-label">Angle:</span>
+                <span class="status-value" id="angle">0°</span>
             </div>
             <div class="status-row">
-                <span class="status-label">Position Y:</span>
-                <span class="status-value" id="pos-y">0</span>
+                <span class="status-label">Intensité:</span>
+                <span class="status-value" id="intensity">0.00</span>
             </div>
             <div class="status-row">
                 <span class="status-label">Direction:</span>
                 <span class="status-value" id="direction-text">STOP</span>
-            </div>
-            <div class="status-row">
-                <span class="status-label">Vitesse:</span>
-                <span class="status-value" id="speed">0%</span>
             </div>
             <div class="status-message" id="status">🔄 En attente de commande...</div>
         </div>
@@ -196,10 +192,9 @@
         const joystick = document.getElementById('joystick');
         const knob = document.getElementById('knob');
         const directionIndicator = document.getElementById('direction');
-        const posXSpan = document.getElementById('pos-x');
-        const posYSpan = document.getElementById('pos-y');
+        const angleSpan = document.getElementById('angle');
+        const intensitySpan = document.getElementById('intensity');
         const directionSpan = document.getElementById('direction-text');
-        const speedSpan = document.getElementById('speed');
         const statusDiv = document.getElementById('status');
         
         const size = 280;
@@ -207,74 +202,43 @@
         const knobRadius = 35;
         let dragging = false;
         let lastSendTime = 0;
-        const SEND_INTERVAL = 80;
-        let lastKx = 0;
-        let lastKy = 0;
+        const SEND_INTERVAL = 500; // Compatible avec votre serveur
+        let lastAngle = 0;
+        let lastIntensity = 0;
         let commandTimeout = null;
 
-        // Configuration identique au serveur Flask
-        const MIN_SPEED = 85;
-        const MAX_SPEED = 98;
-        const DEADZONE = 0.35;
-
-        function calculateDirection(kx, ky) {
-            const kr = Math.sqrt(kx*kx + ky*ky);
-            if (kr < DEADZONE) {
-                return { direction: "stop", speed: 0, kr: kr };
-            }
-            
-            const ka = Math.atan2(ky, kx) * 180 / Math.PI;
-            let direction;
-            
-            if (ka > 45 && ka < 135) {
-                direction = "forward";
-            } else if (ka > 135 || ka < -135) {
-                direction = "turn_left";
-            } else if (ka > -45 && ka < 45) {
-                direction = "turn_right";
-            } else if (ka > -135 && ka < -45) {
-                direction = "backward";
-            } else {
-                direction = "stop";
-            }
-            
-            const speed = direction === "stop" ? 0 : 
-                         Math.round(MIN_SPEED + (MAX_SPEED - MIN_SPEED) * Math.min(kr, 1.0));
-            
-            return { direction, speed, kr };
-        }
-
-        function sendCommand(kx, ky) {
+        function sendCommand(angle, intensity) {
             const now = Date.now();
             
             if (now - lastSendTime < SEND_INTERVAL) {
                 return;
             }
             
-            if (Math.abs(kx - lastKx) < 0.05 && Math.abs(ky - lastKy) < 0.05) {
+            if (Math.abs(angle - lastAngle) < 5 && Math.abs(intensity - lastIntensity) < 0.05) {
                 return;
             }
             
             lastSendTime = now;
-            lastKx = kx;
-            lastKy = ky;
+            lastAngle = angle;
+            lastIntensity = intensity;
 
-            const result = calculateDirection(kx, ky);
+            statusDiv.textContent = `📡 Envoi: angle ${angle}°, intensité ${intensity}`;
             
-            statusDiv.textContent = `📡 Envoi: ${result.direction} (${result.speed}%)`;
-            
+            // Format compatible avec votre serveur Flask actuel
             fetch('/command', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ kx: kx, ky: ky })
+                body: JSON.stringify({ 
+                    angle: angle, 
+                    intensity: intensity 
+                })
             })
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
                     statusDiv.textContent = `✅ ${data.message}`;
                 } else if (data.status === 'busy') {
-                    statusDiv.textContent = '⏳ Robot occupé, réessai...';
-                    setTimeout(() => sendCommand(kx, ky), 200);
+                    statusDiv.textContent = '⏳ Robot occupé...';
                 } else {
                     statusDiv.textContent = `❌ Erreur: ${data.message}`;
                 }
@@ -290,17 +254,29 @@
             knob.style.top = `${y}px`;
         }
 
-        function updateInterface(kx, ky) {
-            const result = calculateDirection(kx, ky);
+        function updateInterface(angle, intensity) {
+            angleSpan.textContent = `${Math.round(angle)}°`;
+            intensitySpan.textContent = intensity.toFixed(2);
             
-            posXSpan.textContent = kx.toFixed(2);
-            posYSpan.textContent = ky.toFixed(2);
-            directionSpan.textContent = result.direction.toUpperCase();
-            speedSpan.textContent = `${result.speed}%`;
+            // Déterminer la direction pour l'affichage
+            let direction = "STOP";
+            if (intensity > 0.25) {
+                if (angle >= 315 || angle < 45) {
+                    direction = "FORWARD";
+                } else if (angle >= 45 && angle < 135) {
+                    direction = "TURN RIGHT";
+                } else if (angle >= 135 && angle < 225) {
+                    direction = "BACKWARD";
+                } else if (angle >= 225 && angle < 315) {
+                    direction = "TURN LEFT";
+                }
+            }
+            
+            directionSpan.textContent = direction;
             
             // Indicateur de direction
-            if (result.direction !== "stop") {
-                directionIndicator.textContent = result.direction.replace('_', ' ').toUpperCase();
+            if (direction !== "STOP") {
+                directionIndicator.textContent = direction;
                 directionIndicator.classList.add('show');
             } else {
                 directionIndicator.classList.remove('show');
@@ -330,21 +306,23 @@
             if (dist > maxDist) {
                 dx = dx * maxDist / dist;
                 dy = dy * maxDist / dist;
+                dist = maxDist;
             }
             
             setKnob(radius + dx, radius + dy);
             
-            // Conversion vers format serveur (kx, ky normalisés) - CORRECTION Y inversé
-            const kx = dx / maxDist;
-            const ky = -dy / maxDist;  // ⚡ INVERSION : dy négatif devient positif vers le haut
+            // Calcul angle (0 = haut, 90 = droite) - CORRIGÉ POUR INTUITIVITÉ
+            let angle = Math.atan2(dx, -dy) * 180 / Math.PI;
+            if (angle < 0) angle += 360;
+            let intensity = +(dist / maxDist).toFixed(2);
             
-            updateInterface(kx, ky);
+            updateInterface(angle, intensity);
             
             if (commandTimeout) {
                 clearTimeout(commandTimeout);
             }
             commandTimeout = setTimeout(() => {
-                sendCommand(kx, ky);
+                sendCommand(Math.round(angle), intensity);
             }, SEND_INTERVAL);
         }
 
@@ -391,7 +369,7 @@
             }
         });
 
-        // Initial position
+        // Position initiale
         resetKnob();
     </script>
 </body>
