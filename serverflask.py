@@ -245,102 +245,111 @@ def advanced():
 
 @app.route('/command', methods=['POST'])
 def handle_command():
-    try:
-        data = request.get_json()
+    """
+    ROUTE UNIVERSELLE - Accepte les deux formats:
+    - {angle, intensity} depuis l'HTML
+    - {kx, ky} depuis d'autres interfaces
+    """
+    global last_command, autonomous_mode_enabled
+    with autonomous_lock:
+        if autonomous_mode_enabled:
+            autonomous_mode_enabled = False
+    
+    if not my_dog.is_legs_done():
+        return jsonify({'status': 'busy', 'message': 'Robot occupé'})
+    
+    data = request.get_json()
+    
+    # Détection automatique du format
+    if 'angle' in data and 'intensity' in data:
+        # Format HTML: {angle, intensity}
+        angle = float(data.get('angle', 0))
+        intensity = float(data.get('intensity', 0))
+        direction, value = calculate_direction_from_angle(angle, intensity)
+        print(f"HTML Format: angle={angle}°, intensity={intensity} → {direction}")
+        
+    elif 'kx' in data and 'ky' in data:
+        # Format alternatif: {kx, ky}
         kx = float(data.get('kx', 0))
         ky = float(data.get('ky', 0))
+        direction, value = calculate_direction_from_kx_ky(kx, ky)
+        print(f"KX/KY Format: kx={kx}, ky={ky} → {direction}")
         
-        # Calcul de la direction et de la vitesse
-        kr = sqrt(kx*kx + ky*ky)
-        if kr < DEADZONE:
-            my_dog.stop()
-            return jsonify({'status': 'success', 'message': 'Arrêt'})
+    else:
+        return jsonify({'status': 'error', 'message': 'Format de données invalide'})
+
+    # Calcul de la vitesse
+    speed = 0 if direction == "stop" else int(MIN_SPEED + (MAX_SPEED - MIN_SPEED) * min(value, 1.0))
+    
+    valid_directions = ["forward", "backward", "turn_left", "turn_right", "stop"]
+    if direction not in valid_directions:
+        return jsonify({'status': 'error', 'message': f'Commande {direction} non reconnue.'})
+    
+    try:
+        if direction != last_command and last_command not in [None, "stop"]:
+            my_dog.legs_stop()
+            my_dog.wait_all_done()
         
-        # Calcul de l'angle en degrés
-        ka = atan2(ky, kx) * 180 / pi
-        
-        # Détermination de la direction
-        if ka > 45 and ka < 135:
-            direction = "forward"
-        elif ka > 135 or ka < -135:
-            direction = "turn_left"
-        elif ka > -45 and ka < 45:
-            direction = "turn_right"
-        elif ka > -135 and ka < -45:
-            direction = "backward"
-        else:
-            direction = "stop"
-        
-        # Calcul de la vitesse
-        speed = int(MIN_SPEED + (MAX_SPEED - MIN_SPEED) * min(kr, 1.0))
-        
-        # Exécution de la commande
         if direction == "forward":
-            my_dog.forward(speed)
+            my_dog.do_action('forward', speed=speed)
         elif direction == "backward":
-            my_dog.backward(speed)
+            my_dog.do_action('backward', speed=speed)
         elif direction == "turn_left":
-            my_dog.turn_left(speed)
+            my_dog.do_action('turn_left', speed=speed)
         elif direction == "turn_right":
-            my_dog.turn_right(speed)
-        else:
-            my_dog.stop()
+            my_dog.do_action('turn_right', speed=speed)
+        elif direction == "stop":
+            my_dog.legs_stop()
+            my_dog.wait_all_done()
         
-        return jsonify({
-            'status': 'success',
-            'message': f'{direction} à {speed}%',
-            'direction': direction,
-            'speed': speed
-        })
+        last_command = direction
+        return jsonify({'status': 'success', 'message': f'{direction} - vitesse {speed}%'})
     except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)})
+        return jsonify({'status': 'error', 'message': f'Erreur: {str(e)}'})
 
 @app.route('/head_control', methods=['POST'])
-def control_head():
+def handle_head_control():
+    """Contrôle de la tête via joystick droit"""
+    data = request.get_json()
+    qx = float(data.get('qx', 0))
+    qy = float(data.get('qy', 0))
+    
     try:
-        data = request.get_json()
-        qx = float(data.get('qx', 0))  # Rotation horizontale (-100 à 100)
-        qy = float(data.get('qy', 0))  # Rotation verticale (-100 à 100)
+        if abs(qx) > 5 or abs(qy) > 5:  # Zone morte pour la tête
+            yaw = map_value(qx, -100, 100, -90, 90)
+            pitch = map_value(qy, -100, 100, -30, 30)
+            set_head(yaw=yaw, pitch=pitch)
+        else:
+            set_head(yaw=0, pitch=0)
         
-        # Conversion des valeurs -100/100 en angles
-        head_x = int((qx / 100) * 30)  # -30° à +30° horizontal
-        head_y = int((qy / 100) * 30)  # -30° à +30° vertical
-        
-        # Appliquer les mouvements de tête
-        my_dog.head_move(head_x, head_y)
-        
-        return jsonify({'status': 'success', 'message': f'Tête déplacée à X:{head_x}° Y:{head_y}°'})
+        return jsonify({'status': 'success', 'message': f'Tête: yaw={qx:.1f}, pitch={qy:.1f}'})
     except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)})
+        return jsonify({'status': 'error', 'message': f'Erreur tête: {str(e)}'})
 
 @app.route('/action', methods=['POST'])
 def handle_action():
+    """Exécution d'actions spéciales via boutons"""
+    data = request.get_json()
+    action = data.get('action', '')
+    
+    # Actions simples disponibles
+    actions_disponibles = {
+        "sit": lambda: my_dog.do_action('sit', speed=70),
+        "stand_up": lambda: my_dog.do_action('stand', speed=70),
+        "lie_down": lambda: my_dog.do_action('lie', speed=70),
+        "wag_tail": lambda: my_dog.do_action('wag_tail', speed=100),
+        "stretch": lambda: my_dog.do_action('stretch', speed=80),
+        "shake_head": lambda: my_dog.do_action('shake_head', speed=80),
+    }
+    
+    if action not in actions_disponibles:
+        return jsonify({'status': 'error', 'message': f'Action {action} non reconnue'})
+    
     try:
-        data = request.get_json()
-        action = data.get('action')
-        
-        if action == 'bark':
-            my_dog.do_action('bark', speed=100)
-        elif action == 'sit':
-            my_dog.do_action('sit', speed=70)
-        elif action == 'stand_up':
-            my_dog.do_action('stand', speed=70)
-        elif action == 'lie_down':
-            my_dog.do_action('lie', speed=70)
-        elif action == 'stretch':
-            my_dog.do_action('stretch', speed=80)
-        elif action == 'wag_tail':
-            my_dog.do_action('wag_tail', speed=100)
-        elif action == 'pant':
-            my_dog.do_action('pant', speed=100)
-        elif action == 'scratch':
-            my_dog.do_action('scratch', speed=100)
-        else:
-            return jsonify({'status': 'error', 'message': 'Action non reconnue'})
-        
+        actions_disponibles[action]()
         return jsonify({'status': 'success', 'message': f'Action {action} exécutée'})
     except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)})
+        return jsonify({'status': 'error', 'message': f'Erreur action: {str(e)}'})
 
 @app.route('/get_ip', methods=['GET'])
 def get_ip():
@@ -374,21 +383,40 @@ def get_status():
         return jsonify({'status': 'error', 'message': str(e)})
 
 @app.route('/autonomous_mode', methods=['POST'])
-def toggle_autonomous_mode():
+def set_autonomous_mode():
+    global autonomous_mode_enabled, _autonomous_thread
+    data = request.get_json()
+    enabled = bool(data.get('enabled', False))
+    with autonomous_lock:
+        if enabled and not autonomous_mode_enabled:
+            autonomous_mode_enabled = True
+            _autonomous_thread = threading.Thread(target=autonomous_behavior, daemon=True)
+            _autonomous_thread.start()
+        elif not enabled and autonomous_mode_enabled:
+            autonomous_mode_enabled = False
+    return jsonify({'status': 'success', 'enabled': autonomous_mode_enabled})
+
+@app.route('/bark', methods=['POST'])
+def bark_endpoint():
     try:
-        data = request.get_json()
-        enabled = data.get('enabled', False)
-        
-        if enabled:
-            autonomous_thread = threading.Thread(target=autonomous_behavior)
-            autonomous_thread.daemon = True
-            autonomous_thread.start()
-            return jsonify({'status': 'success', 'message': 'Mode autonome activé'})
-        else:
-            # Arrêter le mode autonome
-            global autonomous_running
-            autonomous_running = False
-            return jsonify({'status': 'success', 'message': 'Mode autonome désactivé'})
+        my_dog.do_action('bark', speed=100)
+        return jsonify({'status': 'success', 'message': 'Aboiement exécuté'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
+
+@app.route('/pant', methods=['POST'])
+def pant_endpoint():
+    try:
+        my_dog.do_action('pant', speed=100)
+        return jsonify({'status': 'success', 'message': 'Halètement exécuté'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
+
+@app.route('/scratch', methods=['POST'])
+def scratch_endpoint():
+    try:
+        my_dog.do_action('scratch', speed=100)
+        return jsonify({'status': 'success', 'message': 'Grattage exécuté'})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
 

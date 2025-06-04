@@ -528,9 +528,9 @@
 
             setKnobPosition(headKnob, headJoystick, centerX + dx, centerY + dy);
 
-            // Conversion pour contrôle de tête (range -100 à 100) - CORRECTION Y inversé
-            currentHeadQx = (dx / maxDist) * 100;
-            currentHeadQy = -(dy / maxDist) * 100; // ⚡ Double inversion pour contrôle tête naturel
+            // Conversion pour contrôle de tête (range -100 à 100) - INVERSION AXE Y UNIQUEMENT
+            currentHeadQx = -(dx / maxDist) * 100;
+            currentHeadQy = -(dy / maxDist) * 100;
             
             updateInterface();
             sendHeadCommand();
