@@ -407,6 +407,16 @@
         let faceDetectionEnabled = false;
         let connectionStatus = false;
 
+        // Variables pour le joystick de mouvement
+        let lastMoveSendTime = 0;
+        const MOVE_SEND_INTERVAL = 80;
+        let lastMoveKx = 0;
+        let lastMoveKy = 0;
+        let moveCommandTimeout = null;
+        const moveKnobRadius = 25;
+        const moveSize = 160;
+        const moveRadius = moveSize / 2;
+
         // Éléments DOM
         const movementJoystick = document.getElementById('movement-joystick');
         const movementKnob = document.getElementById('movement-knob');
@@ -598,14 +608,22 @@
         }
 
         function sendAction(action) {
-            fetch('/action', {
+            let url, body;
+            if (action === 'bark' || action === 'pant' || action === 'scratch') {
+                url = `/${action}`;
+                body = {};
+            } else {
+                url = '/action';
+                body = { action: action };
+            }
+            fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: action })
+                body: JSON.stringify(body)
             })
             .then(response => response.json())
             .then(data => {
-                document.getElementById('status').textContent = 
+                document.getElementById('status').textContent =
                     data.status === 'success' ? `✅ ${action}` : `❌ Erreur`;
             })
             .catch(error => {
@@ -785,6 +803,141 @@
                 autonomousSwitch.checked = !enabled;
             });
         };
+
+        function calculateMoveDirection(kx, ky) {
+            const kr = Math.sqrt(kx*kx + ky*ky);
+            if (kr < DEADZONE) {
+                return { direction: "stop", speed: 0, kr: kr };
+            }
+            const ka = Math.atan2(ky, kx) * 180 / Math.PI;
+            let direction;
+            if (ka > 45 && ka < 135) {
+                direction = "forward";
+            } else if (ka > 135 || ka < -135) {
+                direction = "turn_left";
+            } else if (ka > -45 && ka < 45) {
+                direction = "turn_right";
+            } else if (ka > -135 && ka < -45) {
+                direction = "backward";
+            } else {
+                direction = "stop";
+            }
+            const speed = direction === "stop" ? 0 : Math.round(MIN_SPEED + (MAX_SPEED - MIN_SPEED) * Math.min(kr, 1.0));
+            return { direction, speed, kr };
+        }
+
+        function sendMoveCommand(kx, ky) {
+            const now = Date.now();
+            if (now - lastMoveSendTime < MOVE_SEND_INTERVAL) return;
+            if (Math.abs(kx - lastMoveKx) < 0.05 && Math.abs(ky - lastMoveKy) < 0.05) return;
+            lastMoveSendTime = now;
+            lastMoveKx = kx;
+            lastMoveKy = ky;
+            const result = calculateMoveDirection(kx, ky);
+            document.getElementById('status').textContent = `📡 Envoi: ${result.direction} (${result.speed}%)`;
+            fetch('/command', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ kx: kx, ky: ky })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('status').textContent =
+                    data.status === 'success' ? `✅ ${data.message}` :
+                    data.status === 'busy' ? '⏳ Robot occupé, réessai...' :
+                    `❌ Erreur: ${data.message}`;
+            })
+            .catch(() => {
+                document.getElementById('status').textContent = '🔴 Erreur de communication';
+            });
+        }
+
+        function setMoveKnob(x, y) {
+            movementKnob.style.left = `${x}px`;
+            movementKnob.style.top = `${y}px`;
+        }
+
+        function updateMoveInterface(kx, ky) {
+            const result = calculateMoveDirection(kx, ky);
+            document.getElementById('move-coords').textContent = `${kx.toFixed(2)} / ${ky.toFixed(2)}`;
+            document.getElementById('direction').textContent = result.direction.toUpperCase();
+            document.getElementById('speed').textContent = `${result.speed}%`;
+        }
+
+        function resetMoveKnob() {
+            setMoveKnob(moveRadius, moveRadius);
+            updateMoveInterface(0, 0);
+            sendMoveCommand(0, 0);
+            if (moveCommandTimeout) {
+                clearTimeout(moveCommandTimeout);
+                moveCommandTimeout = null;
+            }
+        }
+
+        function handleMoveJoystick(clientX, clientY) {
+            const rect = movementJoystick.getBoundingClientRect();
+            let x = clientX - rect.left;
+            let y = clientY - rect.top;
+            let dx = x - moveRadius;
+            let dy = y - moveRadius;
+            let dist = Math.sqrt(dx*dx + dy*dy);
+            let maxDist = moveRadius - moveKnobRadius;
+            if (dist > maxDist) {
+                dx = dx * maxDist / dist;
+                dy = dy * maxDist / dist;
+            }
+            setMoveKnob(moveRadius + dx, moveRadius + dy);
+            // Conversion vers format serveur (kx, ky normalisés) - CORRECTION Y inversé
+            const kx = dx / maxDist;
+            const ky = -dy / maxDist;
+            updateMoveInterface(kx, ky);
+            if (moveCommandTimeout) {
+                clearTimeout(moveCommandTimeout);
+            }
+            moveCommandTimeout = setTimeout(() => {
+                sendMoveCommand(kx, ky);
+            }, MOVE_SEND_INTERVAL);
+        }
+
+        // Event listeners pour le joystick de mouvement
+        movementKnob.addEventListener('mousedown', function(e) {
+            movementDragging = true;
+            movementKnob.classList.add('active');
+            e.preventDefault();
+        });
+        document.addEventListener('mousemove', function(e) {
+            if (movementDragging) {
+                handleMoveJoystick(e.clientX, e.clientY);
+            }
+        });
+        document.addEventListener('mouseup', function(e) {
+            if (movementDragging) {
+                movementDragging = false;
+                movementKnob.classList.remove('active');
+                resetMoveKnob();
+            }
+        });
+        // Touch events
+        movementKnob.addEventListener('touchstart', function(e) {
+            movementDragging = true;
+            movementKnob.classList.add('active');
+            e.preventDefault();
+        });
+        document.addEventListener('touchmove', function(e) {
+            if (movementDragging && e.touches.length === 1) {
+                handleMoveJoystick(e.touches[0].clientX, e.touches[0].clientY);
+                e.preventDefault();
+            }
+        });
+        document.addEventListener('touchend', function(e) {
+            if (movementDragging) {
+                movementDragging = false;
+                movementKnob.classList.remove('active');
+                resetMoveKnob();
+            }
+        });
+        // Initial position
+        resetMoveKnob();
     </script>
 </body>
 </html>
