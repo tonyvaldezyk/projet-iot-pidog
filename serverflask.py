@@ -278,8 +278,8 @@ def advanced():
     return render_template('advanced.html')
 
 @app.route('/voice')
-def advanced():
-    return render_template('advanced.html')
+def voice():
+    return render_template('voice.html')
 
 @app.route('/command', methods=['POST'])
 def handle_command():
