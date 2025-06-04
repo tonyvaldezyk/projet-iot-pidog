@@ -25,7 +25,7 @@ current_status = STATUS_LIE
 
 MIN_SPEED = 85
 MAX_SPEED = 98
-DEADZONE = 0.35  # zone morte pour éviter les micro-mouvements
+DEADZONE = 0.35
 
 autonomous_mode_enabled = False
 _autonomous_thread = None
@@ -75,10 +75,6 @@ def getIP():
 
     return wlan0, eth0
 
-def stretch():
-    my_dog.do_action('stretch', speed=10)
-    my_dog.wait_all_done()
-
 def set_head_pitch_init(pitch):
     global head_pitch_init
     head_pitch_init = pitch
@@ -98,33 +94,23 @@ def change_status(status):
         my_dog.do_action('lie', speed=70)
 
 def calculate_direction_from_angle(angle, intensity):
-    """
-    Convertit angle/intensity en direction - Compatible avec l'HTML
-    angle: 0-360 (0 = haut, 90 = droite, 180 = bas, 270 = gauche)
-    intensity: 0-1
-    """
-    if intensity < 0.25:  # Zone morte
+    if intensity < 0.25:
         return "stop", 0
     
-    # Normaliser l'angle
     angle = angle % 360
     
-    # Déterminer la direction selon les secteurs
-    if (angle >= 315 or angle < 45):           # Secteur nord
+    if (angle >= 315 or angle < 45):
         return "forward", intensity
-    elif (angle >= 45 and angle < 135):       # Secteur est
+    elif (angle >= 45 and angle < 135):
         return "turn_right", intensity
-    elif (angle >= 135 and angle < 225):      # Secteur sud
+    elif (angle >= 135 and angle < 225):
         return "backward", intensity
-    elif (angle >= 225 and angle < 315):      # Secteur ouest
+    elif (angle >= 225 and angle < 315):
         return "turn_left", intensity
     else:
         return "stop", 0
 
 def calculate_direction_from_kx_ky(kx, ky):
-    """
-    Convertit kx/ky en direction - Compatible avec d'autres interfaces
-    """
     kr = sqrt(kx**2 + ky**2)
     if kr < DEADZONE:
         return "stop", 0
@@ -141,91 +127,120 @@ def calculate_direction_from_kx_ky(kx, ky):
     else:
         return "stop", 0
 
+def safe_action(action_name, speed=90, step_count=1):
+    """Exécute une action et attend qu'elle se termine complètement"""
+    try:
+        print(f"[AUTO] Executing {action_name}")
+        my_dog.do_action(action_name, speed=speed, step_count=step_count)
+        my_dog.wait_all_done()  # Attend la fin COMPLÈTE de l'action
+        sleep(0.5)  # Pause supplémentaire pour éviter les conflits
+        return True
+    except Exception as e:
+        print(f"[AUTO] Erreur lors de {action_name}: {e}")
+        return False
+
+def check_obstacle():
+    """Vérifie s'il y a un obstacle et évite si nécessaire"""
+    try:
+        distance = my_dog.read_distance()
+        if distance is not None and distance < 20:
+            print(f"[AUTO] Obstacle détecté à {distance}cm - Évitement")
+            # Arrêt immédiat
+            my_dog.legs_stop()
+            my_dog.wait_all_done()
+            sleep(0.5)
+            
+            # Turn aléatoire pour éviter
+            turn_direction = random.choice(['turn_left', 'turn_right'])
+            safe_action(turn_direction, speed=85, step_count=2)
+            return True
+        return False
+    except Exception as e:
+        print(f"[AUTO] Erreur lecture capteur: {e}")
+        return False
+
 def autonomous_behavior():
+    """Mode autonome optimisé - Une seule action à la fois"""
     global autonomous_mode_enabled
-    def check_stop():
+    
+    def is_stopped():
         with autonomous_lock:
             return not autonomous_mode_enabled
-
-    # Actions statiques (non déplacement)
-    static_actions = [
-        lambda: my_dog.do_action('bark', speed=100),
-        lambda: my_dog.do_action('lie', speed=70),
-        lambda: my_dog.do_action('stretch', speed=80),
-        lambda: my_dog.do_action('wag_tail', speed=100),
-        lambda: my_dog.do_action('shake_head', speed=80),
+    
+    print("[AUTO] 🤖 Mode autonome démarré")
+    
+    # Séquence d'actions autonomes
+    actions_sequence = [
+        # (action, durée_max_secondes, description)
+        ('stand', 3, 'Se lever'),
+        ('bark', 5, 'Aboyer'),
+        ('explore', 20, 'Explorer et éviter obstacles'),
+        ('wag_tail', 3, 'Remuer la queue'),
+        ('sit', 3, 'S\'asseoir'),
+        ('stretch', 5, 'S\'étirer'),
+        ('lie', 3, 'Se coucher'),
+        ('rest', 5, 'Se reposer'),
     ]
-
-    while True:
-        # 1. Aboyer pendant 30 secondes
-        if check_stop(): break
-        print('[AUTO] Barking for 30s')
-        my_dog.do_action('bark', speed=100)
-        for _ in range(3):
-            if check_stop(): break
-            sleep(1)
-        if check_stop(): break
-
-        # 2. Marche avant, évite les obstacles, pendant 10s
-        print('[AUTO] Walking forward for 10s')
-        t0 = time.time()
-        while time.time() - t0 < 15:
-            if check_stop(): break
-            dist = my_dog.read_distance()
-            if dist is not None and dist < 20:
-                print('[AUTO] Obstacle detected, avoiding')
-                turn = random.choice(['turn_left', 'turn_right'])
-                my_dog.do_action(turn, speed=random.randint(85, 98))
-                my_dog.wait_all_done()
-                my_dog.do_action('forward', speed=random.randint(85, 98))
+    
+    while not is_stopped():
+        for action_name, max_duration, description in actions_sequence:
+            if is_stopped():
+                break
+                
+            print(f"[AUTO] 📋 Phase: {description}")
+            start_time = time.time()
+            
+            if action_name == 'explore':
+                # Mode exploration avec évitement d'obstacles
+                while time.time() - start_time < max_duration and not is_stopped():
+                    if check_obstacle():
+                        continue  # L'évitement a été fait, on continue
+                    
+                    # Mouvement aléatoire
+                    move_choice = random.choices(
+                        ['forward', 'turn_left', 'turn_right'], 
+                        weights=[70, 15, 15]  # 70% chance d'aller tout droit
+                    )[0]
+                    
+                    safe_action(move_choice, speed=random.randint(85, 95), step_count=1)
+                    
+                    if is_stopped():
+                        break
+                        
+            elif action_name == 'rest':
+                # Phase de repos - petits mouvements de tête
+                for _ in range(max_duration):
+                    if is_stopped():
+                        break
+                    # Petit mouvement de tête aléatoire
+                    try:
+                        yaw = random.randint(-30, 30)
+                        set_head(yaw=yaw)
+                        sleep(1)
+                    except:
+                        pass
+                        
             else:
-                my_dog.do_action('forward', speed=random.randint(85, 98))
-            my_dog.wait_all_done()
-            sleep(0.5)
-        if check_stop(): break
-
-        # 3. Action statique aléatoire pendant 5s
-        action = random.choice(static_actions)
-        print(f'[AUTO] Static action for 5s: {action.__name__}')
-        action()
-        for _ in range(5):
-            if check_stop(): break
-            sleep(1)
-        if check_stop(): break
-
-        # 4. Se lever
-        print('[AUTO] Standing up')
-        my_dog.do_action('stand', speed=70)
+                # Action standard
+                safe_action(action_name, speed=random.randint(80, 95))
+                
+                # Attendre le reste de la durée
+                elapsed = time.time() - start_time
+                remaining = max_duration - elapsed
+                if remaining > 0:
+                    sleep(min(remaining, 2))  # Max 2s d'attente supplémentaire
+            
+            if is_stopped():
+                break
+    
+    # Arrêt propre
+    print("[AUTO] 🛑 Mode autonome arrêté")
+    try:
+        my_dog.legs_stop()
         my_dog.wait_all_done()
-        if check_stop(): break
-
-        # 5. Marche avant (10-15s), évite les obstacles
-        walk_time = random.randint(10, 15)
-        print(f'[AUTO] Walking forward for {walk_time}s')
-        t0 = time.time()
-        while time.time() - t0 < walk_time:
-            if check_stop(): break
-            dist = my_dog.read_distance()
-            if dist is not None and dist < 20:
-                print('[AUTO] Obstacle detected, avoiding')
-                turn = random.choice(['turn_left', 'turn_right'])
-                my_dog.do_action(turn, speed=random.randint(85, 98))
-                my_dog.wait_all_done()
-                my_dog.do_action('forward', speed=random.randint(85, 98))
-            else:
-                my_dog.do_action('forward', speed=random.randint(85, 98))
-            my_dog.wait_all_done()
-            sleep(0.5)
-        if check_stop(): break
-
-        # 6. Action statique aléatoire pendant 5s
-        action = random.choice(static_actions)
-        print(f'[AUTO] Static action for 5s: {action.__name__}')
-        action()
-        for _ in range(5):
-            if check_stop(): break
-            sleep(1)
-        if check_stop(): break
+        set_head(yaw=0, pitch=0)  # Recentrer la tête
+    except:
+        pass
 
 # Flask App
 app = Flask(__name__)
@@ -245,40 +260,32 @@ def advanced():
 
 @app.route('/command', methods=['POST'])
 def handle_command():
-    """
-    ROUTE UNIVERSELLE - Accepte les deux formats:
-    - {angle, intensity} depuis l'HTML
-    - {kx, ky} depuis d'autres interfaces
-    """
     global last_command, autonomous_mode_enabled
+    
+    # Désactiver le mode autonome si commande manuelle
     with autonomous_lock:
         if autonomous_mode_enabled:
             autonomous_mode_enabled = False
+            print("[AUTO] Mode autonome désactivé par commande manuelle")
     
     if not my_dog.is_legs_done():
         return jsonify({'status': 'busy', 'message': 'Robot occupé'})
     
     data = request.get_json()
     
-    # Détection automatique du format
     if 'angle' in data and 'intensity' in data:
-        # Format HTML: {angle, intensity}
         angle = float(data.get('angle', 0))
         intensity = float(data.get('intensity', 0))
         direction, value = calculate_direction_from_angle(angle, intensity)
-        print(f"HTML Format: angle={angle}°, intensity={intensity} → {direction}")
         
     elif 'kx' in data and 'ky' in data:
-        # Format alternatif: {kx, ky}
         kx = float(data.get('kx', 0))
         ky = float(data.get('ky', 0))
         direction, value = calculate_direction_from_kx_ky(kx, ky)
-        print(f"KX/KY Format: kx={kx}, ky={ky} → {direction}")
         
     else:
         return jsonify({'status': 'error', 'message': 'Format de données invalide'})
 
-    # Calcul de la vitesse
     speed = 0 if direction == "stop" else int(MIN_SPEED + (MAX_SPEED - MIN_SPEED) * min(value, 1.0))
     
     valid_directions = ["forward", "backward", "turn_left", "turn_right", "stop"]
@@ -309,13 +316,12 @@ def handle_command():
 
 @app.route('/head_control', methods=['POST'])
 def handle_head_control():
-    """Contrôle de la tête via joystick droit"""
     data = request.get_json()
     qx = float(data.get('qx', 0))
     qy = float(data.get('qy', 0))
     
     try:
-        if abs(qx) > 5 or abs(qy) > 5:  # Zone morte pour la tête
+        if abs(qx) > 5 or abs(qy) > 5:
             yaw = map_value(qx, -100, 100, -90, 90)
             pitch = map_value(qy, -100, 100, -30, 30)
             set_head(yaw=yaw, pitch=pitch)
@@ -328,11 +334,9 @@ def handle_head_control():
 
 @app.route('/action', methods=['POST'])
 def handle_action():
-    """Exécution d'actions spéciales via boutons"""
     data = request.get_json()
     action = data.get('action', '')
     
-    # Actions simples disponibles
     actions_disponibles = {
         "sit": lambda: my_dog.do_action('sit', speed=70),
         "stand_up": lambda: my_dog.do_action('stand', speed=70),
@@ -340,6 +344,7 @@ def handle_action():
         "wag_tail": lambda: my_dog.do_action('wag_tail', speed=100),
         "stretch": lambda: my_dog.do_action('stretch', speed=80),
         "shake_head": lambda: my_dog.do_action('shake_head', speed=80),
+        "bark": lambda: my_dog.do_action('bark', speed=100),
     }
     
     if action not in actions_disponibles:
@@ -351,78 +356,69 @@ def handle_action():
     except Exception as e:
         return jsonify({'status': 'error', 'message': f'Erreur action: {str(e)}'})
 
+@app.route('/autonomous_mode', methods=['POST'])
+def set_autonomous_mode():
+    global autonomous_mode_enabled, _autonomous_thread
+    
+    data = request.get_json()
+    enabled = bool(data.get('enabled', False))
+    
+    with autonomous_lock:
+        if enabled and not autonomous_mode_enabled:
+            print("[AUTO] 🚀 Activation du mode autonome")
+            autonomous_mode_enabled = True
+            _autonomous_thread = threading.Thread(target=autonomous_behavior, daemon=True)
+            _autonomous_thread.start()
+            
+        elif not enabled and autonomous_mode_enabled:
+            print("[AUTO] 🛑 Désactivation du mode autonome")
+            autonomous_mode_enabled = False
+            # Arrêt immédiat
+            try:
+                my_dog.legs_stop()
+                my_dog.wait_all_done()
+            except:
+                pass
+    
+    return jsonify({
+        'status': 'success', 
+        'enabled': autonomous_mode_enabled,
+        'message': f"Mode autonome {'activé' if autonomous_mode_enabled else 'désactivé'}"
+    })
+
 @app.route('/get_ip', methods=['GET'])
 def get_ip():
-    """Retourne l'IP pour le streaming"""
     wlan0, eth0 = getIP()
     ip = wlan0 if wlan0 else eth0
     return jsonify({'ip': ip})
 
 @app.route('/sensor_data', methods=['GET'])
 def get_sensor_data():
-    """Données des capteurs en temps réel"""
     try:
         distance = round(my_dog.read_distance(), 2)
         return jsonify({
             'distance': distance,
-            'status': current_status
+            'status': current_status,
+            'autonomous_mode': autonomous_mode_enabled
         })
     except Exception as e:
         return jsonify({'error': str(e)})
 
 @app.route('/status', methods=['GET'])
 def get_status():
-    """État général du robot"""
     try:
         return jsonify({
             'status': 'connected',
             'robot_status': current_status,
-            'is_busy': not my_dog.is_all_done()
+            'is_busy': not my_dog.is_all_done(),
+            'autonomous_mode': autonomous_mode_enabled
         })
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)})
-
-@app.route('/autonomous_mode', methods=['POST'])
-def set_autonomous_mode():
-    global autonomous_mode_enabled, _autonomous_thread
-    data = request.get_json()
-    enabled = bool(data.get('enabled', False))
-    with autonomous_lock:
-        if enabled and not autonomous_mode_enabled:
-            autonomous_mode_enabled = True
-            _autonomous_thread = threading.Thread(target=autonomous_behavior, daemon=True)
-            _autonomous_thread.start()
-        elif not enabled and autonomous_mode_enabled:
-            autonomous_mode_enabled = False
-    return jsonify({'status': 'success', 'enabled': autonomous_mode_enabled})
-
-@app.route('/bark', methods=['POST'])
-def bark_endpoint():
-    try:
-        my_dog.do_action('bark', speed=100)
-        return jsonify({'status': 'success', 'message': 'Aboiement exécuté'})
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)})
-
-@app.route('/pant', methods=['POST'])
-def pant_endpoint():
-    try:
-        my_dog.do_action('pant', speed=100)
-        return jsonify({'status': 'success', 'message': 'Halètement exécuté'})
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)})
-
-@app.route('/scratch', methods=['POST'])
-def scratch_endpoint():
-    try:
-        my_dog.do_action('scratch', speed=100)
-        return jsonify({'status': 'success', 'message': 'Grattage exécuté'})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
 
 if __name__ == "__main__":
     try:
-        print("🐕 Démarrage du serveur PiDog...")
+        print("🐕 Démarrage du serveur PiDog avec mode autonome optimisé...")
         wlan0, eth0 = getIP()
         ip = wlan0 if wlan0 else eth0
         if ip:
