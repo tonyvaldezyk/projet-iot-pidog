@@ -1,32 +1,35 @@
 from flask import Flask, render_template, request, jsonify
-from math import atan2, sqrt, pi
-import time
 import signal
 import sys
-import os
-import subprocess
 
-# Libérer les GPIO avant toute initialisation
 try:
-    subprocess.run(['sudo', 'pkill', '-f', 'pigpiod'], check=False)
-    time.sleep(1)
-    subprocess.run(['sudo', 'killall', 'python3'], check=False)
-    time.sleep(1)
-    subprocess.run(['sudo', 'pigpiod'], check=True)
-    time.sleep(1)
-except Exception as e:
-    print(f"[WARN] Impossible de libérer les GPIO automatiquement : {e}")
+    from pidog import Pidog
+except ImportError:
+    Pidog = None
 
-from pidog import Pidog
+from math import atan2, sqrt, pi
+import time
 
 app = Flask(__name__)
-my_dog = Pidog()
+my_dog = None
 last_command = None
 
 # Vitesse minimale et maximale pour les servos
 MIN_SPEED = 85
 MAX_SPEED = 98
 DEADZONE = 0.35  # zone morte pour éviter les micro-mouvements
+
+def try_init_pidog():
+    global my_dog
+    try:
+        if Pidog is not None:
+            my_dog = Pidog()
+            print("Pidog initialized successfully!")
+        else:
+            print("Pidog library not found.")
+    except Exception as e:
+        print(f"[WARN] Impossible d'initialiser Pidog : {e}")
+        my_dog = None
 
 def cleanup_gpio():
     global my_dog
@@ -69,6 +72,8 @@ def hello():
 @app.route('/command', methods=['POST'])
 def handle_command():
     global last_command
+    if my_dog is None:
+        return jsonify({'status': 'error', 'message': 'Robot non initialisé (GPIO occupé ou absent)'})
     if not my_dog.is_legs_done():
         return jsonify({'status': 'busy', 'message': 'Robot occupé'})
     data = request.get_json()
@@ -99,7 +104,16 @@ def handle_command():
     except Exception as e:
         return jsonify({'status': 'error', 'message': f'Erreur: {str(e)}'})
 
+@app.route('/init_robot', methods=['POST'])
+def init_robot():
+    try_init_pidog()
+    if my_dog is not None:
+        return jsonify({'status': 'success', 'message': 'Robot initialisé avec succès.'})
+    else:
+        return jsonify({'status': 'error', 'message': 'Impossible d\'initialiser le robot (GPIO occupé ?)'})
+
 if __name__ == '__main__':
+    try_init_pidog()
     try:
         app.run(host='0.0.0.0', port=8080, debug=True)
     finally:
