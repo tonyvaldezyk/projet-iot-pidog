@@ -30,6 +30,7 @@ DEADZONE = 0.35
 autonomous_mode_enabled = False
 _autonomous_thread = None
 autonomous_lock = threading.Lock()
+last_manual_command_time = 0  # Pour éviter les conflits
 
 def cleanup_gpio():
     global my_dog
@@ -93,66 +94,45 @@ def change_status(status):
         set_head_pitch_init(STAND_HEAD_PITCH)
         my_dog.do_action('lie', speed=70)
 
-def calculate_direction_from_angle(angle, intensity):
-    if intensity < 0.25:
-        return "stop", 0
-    
-    angle = angle % 360
-    
-    if (angle >= 315 or angle < 45):
-        return "forward", intensity
-    elif (angle >= 45 and angle < 135):
-        return "turn_right", intensity
-    elif (angle >= 135 and angle < 225):
-        return "backward", intensity
-    elif (angle >= 225 and angle < 315):
-        return "turn_left", intensity
-    else:
-        return "stop", 0
-
 def calculate_direction_from_kx_ky(kx, ky):
+    """Fonction corrigée pour calculer la direction"""
     kr = sqrt(kx**2 + ky**2)
     if kr < DEADZONE:
         return "stop", 0
+    
+    # Calcul de l'angle en degrés
     ka = atan2(ky, kx) * 180 / pi
     
-    if (ka > 45 and ka < 135):
+    # Logique de direction corrigée
+    # kx > 0 = droite, kx < 0 = gauche
+    # ky > 0 = avant, ky < 0 = arrière
+    if ky > 0.5:  # Principalement vers l'avant
         return "forward", kr
-    elif (ka > 135 or ka < -135):
-        return "turn_left", kr
-    elif (ka > -45 and ka < 45):
-        return "turn_right", kr
-    elif (ka > -135 and ka < -45):
+    elif ky < -0.5:  # Principalement vers l'arrière
         return "backward", kr
+    elif kx > 0.3:  # Principalement vers la droite
+        return "turn_right", kr
+    elif kx < -0.3:  # Principalement vers la gauche
+        return "turn_left", kr
     else:
         return "stop", 0
 
-def safe_action(action_name, speed=90, step_count=1):
-    """Exécute une action et attend qu'elle se termine complètement"""
+def smooth_action(action_name, speed=90, step_count=3):
+    """Action plus fluide sans attente forcée"""
     try:
-        print(f"[AUTO] Executing {action_name}")
+        print(f"[AUTO] Executing {action_name} (speed={speed}, steps={step_count})")
         my_dog.do_action(action_name, speed=speed, step_count=step_count)
-        my_dog.wait_all_done()  # Attend la fin COMPLÈTE de l'action
-        sleep(0.5)  # Pause supplémentaire pour éviter les conflits
         return True
     except Exception as e:
         print(f"[AUTO] Erreur lors de {action_name}: {e}")
         return False
 
-def check_obstacle():
-    """Vérifie s'il y a un obstacle et évite si nécessaire"""
+def check_obstacle_non_blocking():
+    """Vérification d'obstacle sans blocage"""
     try:
         distance = my_dog.read_distance()
-        if distance is not None and distance < 20:
-            print(f"[AUTO] Obstacle détecté à {distance}cm - Évitement")
-            # Arrêt immédiat
-            my_dog.legs_stop()
-            my_dog.wait_all_done()
-            sleep(0.5)
-            
-            # Turn aléatoire pour éviter
-            turn_direction = random.choice(['turn_left', 'turn_right'])
-            safe_action(turn_direction, speed=85, step_count=2)
+        if distance is not None and distance < 25:
+            print(f"[AUTO] Obstacle détecté à {distance}cm")
             return True
         return False
     except Exception as e:
@@ -160,84 +140,123 @@ def check_obstacle():
         return False
 
 def autonomous_behavior():
-    """Mode autonome optimisé - Une seule action à la fois"""
-    global autonomous_mode_enabled
+    """Mode autonome fluide et non-saccadé"""
+    global autonomous_mode_enabled, last_manual_command_time
     
     def is_stopped():
         with autonomous_lock:
             return not autonomous_mode_enabled
     
-    print("[AUTO] 🤖 Mode autonome démarré")
+    print("[AUTO] 🤖 Mode autonome démarré - Version fluide")
     
-    # Séquence d'actions autonomes
-    actions_sequence = [
-        # (action, durée_max_secondes, description)
-        ('stand', 3, 'Se lever'),
-        ('bark', 5, 'Aboyer'),
-        ('explore', 20, 'Explorer et éviter obstacles'),
-        ('wag_tail', 3, 'Remuer la queue'),
-        ('sit', 3, 'S\'asseoir'),
-        ('stretch', 5, 'S\'étirer'),
-        ('lie', 3, 'Se coucher'),
-        ('rest', 5, 'Se reposer'),
-    ]
+    # Initialisation : se lever
+    smooth_action('stand', speed=75)
+    sleep(2)  # Temps pour se lever complètement
+    
+    # Variables pour l'exploration fluide
+    current_move_time = 0
+    move_duration = 0
+    current_action = "stop"
+    obstacle_turn_time = 0
+    last_direction_change = time.time()
     
     while not is_stopped():
-        for action_name, max_duration, description in actions_sequence:
-            if is_stopped():
-                break
+        current_time = time.time()
+        
+        # Évitement d'obstacles en priorité
+        if check_obstacle_non_blocking():
+            if current_action != "avoiding":
+                print("[AUTO] 🚨 Évitement d'obstacle")
+                # Arrêt en douceur
+                my_dog.legs_stop()
+                sleep(0.3)
                 
-            print(f"[AUTO] 📋 Phase: {description}")
-            start_time = time.time()
+                # Tourner dans une direction aléatoire
+                turn_direction = random.choice(['turn_left', 'turn_right'])
+                smooth_action(turn_direction, speed=88, step_count=4)
+                current_action = "avoiding"
+                obstacle_turn_time = current_time
+                last_direction_change = current_time
             
-            if action_name == 'explore':
-                # Mode exploration avec évitement d'obstacles
-                while time.time() - start_time < max_duration and not is_stopped():
-                    if check_obstacle():
-                        continue  # L'évitement a été fait, on continue
-                    
-                    # Mouvement aléatoire
-                    move_choice = random.choices(
-                        ['forward', 'turn_left', 'turn_right'], 
-                        weights=[70, 15, 15]  # 70% chance d'aller tout droit
-                    )[0]
-                    
-                    safe_action(move_choice, speed=random.randint(85, 95), step_count=1)
-                    
-                    if is_stopped():
-                        break
-                        
-            elif action_name == 'rest':
-                # Phase de repos - petits mouvements de tête
-                for _ in range(max_duration):
-                    if is_stopped():
-                        break
-                    # Petit mouvement de tête aléatoire
-                    try:
-                        yaw = random.randint(-30, 30)
-                        set_head(yaw=yaw)
-                        sleep(1)
-                    except:
-                        pass
-                        
+            # Continuer à tourner pendant 2 secondes
+            elif current_time - obstacle_turn_time < 2.0:
+                continue
             else:
-                # Action standard
-                safe_action(action_name, speed=random.randint(80, 95))
+                current_action = "stop"
+                move_duration = 0
+        
+        # Exploration normale
+        else:
+            # Nouveau mouvement si nécessaire
+            if current_action == "stop" or current_time - current_move_time > move_duration:
+                if current_time - last_manual_command_time < 3:
+                    # Pause si commande manuelle récente
+                    sleep(0.5)
+                    continue
                 
-                # Attendre le reste de la durée
-                elapsed = time.time() - start_time
-                remaining = max_duration - elapsed
-                if remaining > 0:
-                    sleep(min(remaining, 2))  # Max 2s d'attente supplémentaire
+                # Choisir une nouvelle action
+                actions_weights = [
+                    ("forward", 50, (3, 6)),      # 50% chance, 3-6 secondes
+                    ("turn_left", 20, (1, 3)),    # 20% chance, 1-3 secondes  
+                    ("turn_right", 20, (1, 3)),   # 20% chance, 1-3 secondes
+                    ("explore_head", 5, (2, 4)),  # 5% chance, mouvement de tête
+                    ("action_random", 5, (2, 3)), # 5% chance, action spéciale
+                ]
+                
+                # Sélection pondérée
+                total_weight = sum(w[1] for w in actions_weights)
+                rand_val = random.randint(1, total_weight)
+                cumulative = 0
+                
+                for action, weight, duration_range in actions_weights:
+                    cumulative += weight
+                    if rand_val <= cumulative:
+                        current_action = action
+                        move_duration = random.uniform(*duration_range)
+                        current_move_time = current_time
+                        last_direction_change = current_time
+                        
+                        if action == "forward":
+                            speed = random.randint(87, 95)
+                            step_count = random.randint(5, 10)  # Mouvements plus longs
+                            smooth_action('forward', speed=speed, step_count=step_count)
+                            print(f"[AUTO] 🔄 Avance pendant {move_duration:.1f}s")
+                            
+                        elif action in ["turn_left", "turn_right"]:
+                            speed = random.randint(82, 90)
+                            step_count = random.randint(2, 5)
+                            smooth_action(action, speed=speed, step_count=step_count)
+                            print(f"[AUTO] 🔄 Tourne {action} pendant {move_duration:.1f}s")
+                            
+                        elif action == "explore_head":
+                            # Mouvement de tête tout en étant immobile
+                            print(f"[AUTO] 👁️ Exploration visuelle pendant {move_duration:.1f}s")
+                            
+                        elif action == "action_random":
+                            # Action spéciale occasionnelle
+                            special_actions = ['wag_tail', 'bark', 'stretch']
+                            special_action = random.choice(special_actions)
+                            smooth_action(special_action, speed=random.randint(80, 100))
+                            print(f"[AUTO] 🎭 Action spéciale: {special_action}")
+                        
+                        break
             
-            if is_stopped():
-                break
+            # Exécution continue de l'action courante
+            elif current_action == "explore_head":
+                # Mouvement de tête aléatoire
+                if random.random() < 0.3:  # 30% de chance par cycle
+                    yaw = random.randint(-40, 40)
+                    pitch = random.randint(-20, 20)
+                    set_head(yaw=yaw, pitch=pitch)
+        
+        # Pause courte pour éviter la surcharge CPU
+        sleep(0.2)
     
     # Arrêt propre
-    print("[AUTO] 🛑 Mode autonome arrêté")
+    print("[AUTO] 🛑 Mode autonome arrêté - Arrêt en douceur")
     try:
         my_dog.legs_stop()
-        my_dog.wait_all_done()
+        sleep(0.5)
         set_head(yaw=0, pitch=0)  # Recentrer la tête
     except:
         pass
@@ -258,9 +277,16 @@ def simple():
 def advanced():
     return render_template('advanced.html')
 
+@app.route('/voice')
+def advanced():
+    return render_template('advanced.html')
+
 @app.route('/command', methods=['POST'])
 def handle_command():
-    global last_command, autonomous_mode_enabled
+    global last_command, autonomous_mode_enabled, last_manual_command_time
+    
+    # Marquer le timestamp de la commande manuelle
+    last_manual_command_time = time.time()
     
     # Désactiver le mode autonome si commande manuelle
     with autonomous_lock:
@@ -273,19 +299,28 @@ def handle_command():
     
     data = request.get_json()
     
-    if 'angle' in data and 'intensity' in data:
-        angle = float(data.get('angle', 0))
-        intensity = float(data.get('intensity', 0))
-        direction, value = calculate_direction_from_angle(angle, intensity)
-        
-    elif 'kx' in data and 'ky' in data:
+    # Traitement des coordonnées kx, ky (interface joystick)
+    if 'kx' in data and 'ky' in data:
         kx = float(data.get('kx', 0))
         ky = float(data.get('ky', 0))
+        direction, value = calculate_direction_from_kx_ky(kx, ky)
+        
+        print(f"[CMD] kx={kx:.2f}, ky={ky:.2f} -> {direction} (force={value:.2f})")
+        
+    # Traitement de l'angle et intensité (interface alternative)
+    elif 'angle' in data and 'intensity' in data:
+        angle = float(data.get('angle', 0))
+        intensity = float(data.get('intensity', 0))
+        # Conversion angle -> kx, ky pour utiliser la même logique
+        angle_rad = angle * pi / 180
+        kx = intensity * cos(angle_rad)
+        ky = intensity * sin(angle_rad)
         direction, value = calculate_direction_from_kx_ky(kx, ky)
         
     else:
         return jsonify({'status': 'error', 'message': 'Format de données invalide'})
 
+    # Calcul de la vitesse
     speed = 0 if direction == "stop" else int(MIN_SPEED + (MAX_SPEED - MIN_SPEED) * min(value, 1.0))
     
     valid_directions = ["forward", "backward", "turn_left", "turn_right", "stop"]
@@ -293,24 +328,28 @@ def handle_command():
         return jsonify({'status': 'error', 'message': f'Commande {direction} non reconnue.'})
     
     try:
-        if direction != last_command and last_command not in [None, "stop"]:
-            my_dog.legs_stop()
-            my_dog.wait_all_done()
+        # Gestion améliorée des transitions
+        if direction != last_command:
+            if last_command not in [None, "stop"]:
+                my_dog.legs_stop()
+                # Attente plus courte pour des transitions plus fluides
+                sleep(0.1)
         
+        # Exécution de la commande
         if direction == "forward":
-            my_dog.do_action('forward', speed=speed)
+            my_dog.do_action('forward', speed=speed, step_count=2)
         elif direction == "backward":
-            my_dog.do_action('backward', speed=speed)
+            my_dog.do_action('backward', speed=speed, step_count=2)
         elif direction == "turn_left":
-            my_dog.do_action('turn_left', speed=speed)
+            my_dog.do_action('turn_left', speed=speed, step_count=2)
         elif direction == "turn_right":
-            my_dog.do_action('turn_right', speed=speed)
+            my_dog.do_action('turn_right', speed=speed, step_count=2)
         elif direction == "stop":
             my_dog.legs_stop()
-            my_dog.wait_all_done()
         
         last_command = direction
         return jsonify({'status': 'success', 'message': f'{direction} - vitesse {speed}%'})
+        
     except Exception as e:
         return jsonify({'status': 'error', 'message': f'Erreur: {str(e)}'})
 
@@ -334,6 +373,9 @@ def handle_head_control():
 
 @app.route('/action', methods=['POST'])
 def handle_action():
+    global last_manual_command_time
+    last_manual_command_time = time.time()
+    
     data = request.get_json()
     action = data.get('action', '')
     
@@ -365,7 +407,7 @@ def set_autonomous_mode():
     
     with autonomous_lock:
         if enabled and not autonomous_mode_enabled:
-            print("[AUTO] 🚀 Activation du mode autonome")
+            print("[AUTO] 🚀 Activation du mode autonome fluide")
             autonomous_mode_enabled = True
             _autonomous_thread = threading.Thread(target=autonomous_behavior, daemon=True)
             _autonomous_thread.start()
@@ -373,10 +415,10 @@ def set_autonomous_mode():
         elif not enabled and autonomous_mode_enabled:
             print("[AUTO] 🛑 Désactivation du mode autonome")
             autonomous_mode_enabled = False
-            # Arrêt immédiat
+            # Arrêt en douceur
             try:
                 my_dog.legs_stop()
-                my_dog.wait_all_done()
+                sleep(0.2)
             except:
                 pass
     
@@ -418,7 +460,7 @@ def get_status():
 
 if __name__ == "__main__":
     try:
-        print("🐕 Démarrage du serveur PiDog avec mode autonome optimisé...")
+        print("🐕 Démarrage du serveur PiDog - Version optimisée")
         wlan0, eth0 = getIP()
         ip = wlan0 if wlan0 else eth0
         if ip:

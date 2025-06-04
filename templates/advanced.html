@@ -49,21 +49,49 @@
             text-shadow: 0 2px 4px rgba(30,64,175,0.3);
         }
 
-        .left-controls {
+        .autonomous-panel {
+            grid-column: 1 / -1;
             display: flex;
-            flex-direction: column;
             align-items: center;
+            justify-content: center;
             gap: 15px;
+            background: rgba(99,102,241,0.1);
+            border-radius: 20px;
+            padding: 15px;
+            border: 1px solid rgba(99,102,241,0.3);
         }
 
-        .center-display {
+        .autonomous-panel label {
             display: flex;
-            flex-direction: column;
             align-items: center;
-            gap: 15px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            gap: 10px;
+            color: #1e40af;
         }
 
-        .right-controls {
+        .autonomous-panel input[type="checkbox"] {
+            width: 22px;
+            height: 22px;
+            accent-color: #6366f1;
+        }
+
+        #autonomous-status {
+            font-size: 1rem;
+            color: #6366f1;
+            font-weight: 600;
+            padding: 5px 15px;
+            background: rgba(255,255,255,0.8);
+            border-radius: 15px;
+            border: 2px solid;
+        }
+
+        #autonomous-status.on {
+            color: #10b981;
+            border-color: #10b981;
+        }
+
+        .left-controls, .center-display, .right-controls {
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -280,7 +308,7 @@
         @media (max-width: 768px) {
             .gamepad-controller {
                 grid-template-columns: 1fr;
-                grid-template-rows: auto auto auto auto;
+                grid-template-rows: auto auto auto auto auto;
                 height: auto;
                 width: 95vw;
                 padding: 20px;
@@ -299,12 +327,13 @@
 </head>
 <body>
     <div class="gamepad-controller">
-        <div class="autonomous-panel" style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-            <label style="display:flex;align-items:center;font-weight:600;font-size:1.1rem;gap:10px;">
-                <input type="checkbox" id="autonomous-switch" style="width:22px;height:22px;"> Mode autonome
+        <div class="autonomous-panel">
+            <label>
+                <input type="checkbox" id="autonomous-switch"> Mode autonome
             </label>
-            <span id="autonomous-status" style="font-size:1rem;color:#6366f1;font-weight:600;">OFF</span>
+            <span id="autonomous-status">OFF</span>
         </div>
+
         <div class="connection-status">
             <div class="status-dot" id="connection-dot"></div>
             <span id="connection-text">Déconnecté</span>
@@ -354,8 +383,8 @@
             <div class="action-buttons">
                 <button class="action-btn bark" onclick="sendAction('bark')" title="Aboyer">BARK</button>
                 <button class="action-btn wag" onclick="sendAction('wag_tail')" title="Remuer Queue">WAG</button>
-                <button class="action-btn bark" onclick="sendAction('pant')" title="Haleter" style="background: linear-gradient(145deg, #f97316, #ea580c);">PANT</button>
-                <button class="action-btn wag" onclick="sendAction('scratch')" title="Gratter" style="background: linear-gradient(145deg, #84cc16, #65a30d);">SCRATCH</button>
+                <button class="action-btn bark" onclick="sendAction('shake_head')" title="Secouer tête" style="background: linear-gradient(145deg, #f97316, #ea580c);">SHAKE</button>
+                <button class="action-btn wag" onclick="sendAction('pant')" title="Haleter" style="background: linear-gradient(145deg, #84cc16, #65a30d);">PANT</button>
             </div>
         </div>
 
@@ -393,7 +422,7 @@
         const MIN_SPEED = 85;
         const MAX_SPEED = 98;
         const DEADZONE = 0.35;
-        const SEND_INTERVAL = 80;
+        const SEND_INTERVAL = 100; // Réduit pour plus de fluidité
 
         // Variables globales
         let movementDragging = false;
@@ -407,16 +436,6 @@
         let faceDetectionEnabled = false;
         let connectionStatus = false;
 
-        // Variables pour le joystick de mouvement
-        let lastMoveSendTime = 0;
-        const MOVE_SEND_INTERVAL = 80;
-        let lastMoveKx = 0;
-        let lastMoveKy = 0;
-        let moveCommandTimeout = null;
-        const moveKnobRadius = 25;
-        const moveSize = 160;
-        const moveRadius = moveSize / 2;
-
         // Éléments DOM
         const movementJoystick = document.getElementById('movement-joystick');
         const movementKnob = document.getElementById('movement-knob');
@@ -426,8 +445,6 @@
         const connectionText = document.getElementById('connection-text');
         const videoContainer = document.getElementById('video-container');
         const videoPlaceholder = document.getElementById('video-placeholder');
-
-        // Ajout du switch autonome
         const autonomousSwitch = document.getElementById('autonomous-switch');
         const autonomousStatus = document.getElementById('autonomous-status');
 
@@ -438,17 +455,16 @@
                 return { direction: "stop", speed: 0, kr: kr };
             }
             
-            const ka = Math.atan2(ky, kx) * 180 / Math.PI;
             let direction;
-            
-            if (ka > 45 && ka < 135) {
+            // Logique améliorée pour correspondre au serveur
+            if (ky > 0.5) {  // Principalement vers l'avant
                 direction = "forward";
-            } else if (ka > 135 || ka < -135) {
-                direction = "turn_left";
-            } else if (ka > -45 && ka < 45) {
-                direction = "turn_right";
-            } else if (ka > -135 && ka < -45) {
+            } else if (ky < -0.5) {  // Principalement vers l'arrière
                 direction = "backward";
+            } else if (kx > 0.3) {  // Principalement vers la droite
+                direction = "turn_right";
+            } else if (kx < -0.3) {  // Principalement vers la gauche
+                direction = "turn_left";
             } else {
                 direction = "stop";
             }
@@ -487,9 +503,6 @@
 
         // Gestion des joysticks
         function setKnobPosition(knob, joystick, x, y) {
-            const rect = joystick.getBoundingClientRect();
-            const centerX = rect.width / 2;
-            const centerY = rect.height / 2;
             knob.style.left = `${x}px`;
             knob.style.top = `${y}px`;
         }
@@ -512,9 +525,9 @@
 
             setKnobPosition(movementKnob, movementJoystick, centerX + dx, centerY + dy);
 
-            // Conversion vers format serveur - CORRECTION Y inversé
+            // Conversion vers format serveur - Y inversé pour correspondre au mapping serveur
             currentMoveKx = dx / maxDist;
-            currentMoveKy = -dy / maxDist;  // ⚡ INVERSION : dy négatif devient positif vers le haut
+            currentMoveKy = -dy / maxDist;  // Y inversé: haut = positif, bas = négatif
             
             updateInterface();
             sendMovementCommand();
@@ -538,7 +551,7 @@
 
             setKnobPosition(headKnob, headJoystick, centerX + dx, centerY + dy);
 
-            // Conversion pour contrôle de tête (range -100 à 100) - INVERSION AXE Y UNIQUEMENT
+            // Conversion pour contrôle de tête (range -100 à 100)
             currentHeadQx = -(dx / maxDist) * 100;
             currentHeadQy = -(dy / maxDist) * 100;
             
@@ -582,7 +595,8 @@
             .then(data => {
                 updateConnectionStatus(true);
                 document.getElementById('status').textContent = 
-                    data.status === 'success' ? '✅ OK' : `❌ ${data.message}`;
+                    data.status === 'success' ? '✅ OK' : 
+                    data.status === 'busy' ? '⏳ Occupé' : `❌ ${data.message}`;
             })
             .catch(error => {
                 updateConnectionStatus(false);
@@ -595,7 +609,6 @@
             if (now - lastHeadSend < SEND_INTERVAL) return;
             lastHeadSend = now;
 
-            // Envoyer commande de contrôle de tête (implémentation selon votre serveur)
             fetch('/head_control', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -604,27 +617,25 @@
                     qy: currentHeadQy 
                 })
             })
-            .catch(error => console.log('Head control not implemented yet'));
+            .then(response => response.json())
+            .then(data => {
+                // Gestion silencieuse du contrôle de tête
+            })
+            .catch(error => {
+                // Ignore les erreurs de contrôle de tête si non implémenté
+            });
         }
 
         function sendAction(action) {
-            let url, body;
-            if (action === 'bark' || action === 'pant' || action === 'scratch') {
-                url = `/${action}`;
-                body = {};
-            } else {
-                url = '/action';
-                body = { action: action };
-            }
-            fetch(url, {
+            fetch('/action', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
+                body: JSON.stringify({ action: action })
             })
             .then(response => response.json())
             .then(data => {
                 document.getElementById('status').textContent =
-                    data.status === 'success' ? `✅ ${action}` : `❌ Erreur`;
+                    data.status === 'success' ? `✅ ${action.toUpperCase()}` : `❌ Erreur`;
             })
             .catch(error => {
                 document.getElementById('status').textContent = '🔴 Erreur action';
@@ -643,12 +654,15 @@
                 toggle.textContent = '👁️ Détection Visage: OFF';
             }
 
+            // Optionnel: envoyer au serveur si implémenté
             fetch('/face_detection', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ enabled: faceDetectionEnabled })
             })
-            .catch(error => console.log('Face detection control not implemented yet'));
+            .catch(error => {
+                // Ignore si non implémenté
+            });
         }
 
         // Event Listeners pour joystick de mouvement
@@ -725,9 +739,34 @@
             }
         });
 
+        // Gestion du mode autonome
+        autonomousSwitch.addEventListener('change', function() {
+            const enabled = autonomousSwitch.checked;
+            
+            fetch('/autonomous_mode', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    autonomousStatus.textContent = enabled ? 'ON' : 'OFF';
+                    autonomousStatus.className = enabled ? 'on' : '';
+                    document.getElementById('status').textContent = data.message;
+                } else {
+                    document.getElementById('status').textContent = `❌ Erreur: ${data.message}`;
+                    autonomousSwitch.checked = !enabled; // Revert si erreur
+                }
+            })
+            .catch(error => {
+                document.getElementById('status').textContent = '🔴 Erreur de communication';
+                autonomousSwitch.checked = !enabled; // Revert si erreur
+            });
+        });
+
         // Initialisation du streaming vidéo
         function initVideoStream() {
-            // Récupération de l'IP pour le streaming
             fetch('/get_ip')
                 .then(response => response.json())
                 .then(data => {
@@ -739,6 +778,8 @@
                         iframe.style.border = 'none';
                         videoContainer.removeChild(videoPlaceholder);
                         videoContainer.appendChild(iframe);
+                    } else {
+                        videoPlaceholder.textContent = '❌ IP non disponible';
                     }
                 })
                 .catch(error => {
@@ -753,6 +794,12 @@
                 .then(data => {
                     if (data.distance !== undefined) {
                         document.getElementById('distance').textContent = `${data.distance} cm`;
+                    }
+                    // Synchroniser l'état du mode autonome
+                    if (data.autonomous_mode !== undefined) {
+                        autonomousSwitch.checked = data.autonomous_mode;
+                        autonomousStatus.textContent = data.autonomous_mode ? 'ON' : 'OFF';
+                        autonomousStatus.className = data.autonomous_mode ? 'on' : '';
                     }
                 })
                 .catch(error => {
@@ -776,168 +823,16 @@
             // Test de connexion initial
             fetch('/status')
                 .then(response => response.json())
-                .then(data => updateConnectionStatus(true))
+                .then(data => {
+                    updateConnectionStatus(true);
+                    if (data.autonomous_mode !== undefined) {
+                        autonomousSwitch.checked = data.autonomous_mode;
+                        autonomousStatus.textContent = data.autonomous_mode ? 'ON' : 'OFF';
+                        autonomousStatus.className = data.autonomous_mode ? 'on' : '';
+                    }
+                })
                 .catch(error => updateConnectionStatus(false));
         });
-
-        // Ajout du switch autonome
-        autonomousSwitch.onchange = function() {
-            const enabled = autonomousSwitch.checked;
-            fetch('/autonomous_mode', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ enabled })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    autonomousStatus.textContent = enabled ? 'ON' : 'OFF';
-                    autonomousStatus.style.color = enabled ? '#10b981' : '#6366f1';
-                } else {
-                    document.getElementById('status').textContent = `❌ Erreur: ${data.message}`;
-                    autonomousSwitch.checked = !enabled;
-                }
-            })
-            .catch(() => {
-                document.getElementById('status').textContent = '🔴 Erreur de communication';
-                autonomousSwitch.checked = !enabled;
-            });
-        };
-
-        function calculateMoveDirection(kx, ky) {
-            const kr = Math.sqrt(kx*kx + ky*ky);
-            if (kr < DEADZONE) {
-                return { direction: "stop", speed: 0, kr: kr };
-            }
-            const ka = Math.atan2(ky, kx) * 180 / Math.PI;
-            let direction;
-            if (ka > 45 && ka < 135) {
-                direction = "forward";
-            } else if (ka > 135 || ka < -135) {
-                direction = "turn_left";
-            } else if (ka > -45 && ka < 45) {
-                direction = "turn_right";
-            } else if (ka > -135 && ka < -45) {
-                direction = "backward";
-            } else {
-                direction = "stop";
-            }
-            const speed = direction === "stop" ? 0 : Math.round(MIN_SPEED + (MAX_SPEED - MIN_SPEED) * Math.min(kr, 1.0));
-            return { direction, speed, kr };
-        }
-
-        function sendMoveCommand(kx, ky) {
-            const now = Date.now();
-            if (now - lastMoveSendTime < MOVE_SEND_INTERVAL) return;
-            if (Math.abs(kx - lastMoveKx) < 0.05 && Math.abs(ky - lastMoveKy) < 0.05) return;
-            lastMoveSendTime = now;
-            lastMoveKx = kx;
-            lastMoveKy = ky;
-            const result = calculateMoveDirection(kx, ky);
-            document.getElementById('status').textContent = `📡 Envoi: ${result.direction} (${result.speed}%)`;
-            fetch('/command', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ kx: kx, ky: ky })
-            })
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('status').textContent =
-                    data.status === 'success' ? `✅ ${data.message}` :
-                    data.status === 'busy' ? '⏳ Robot occupé, réessai...' :
-                    `❌ Erreur: ${data.message}`;
-            })
-            .catch(() => {
-                document.getElementById('status').textContent = '🔴 Erreur de communication';
-            });
-        }
-
-        function setMoveKnob(x, y) {
-            movementKnob.style.left = `${x}px`;
-            movementKnob.style.top = `${y}px`;
-        }
-
-        function updateMoveInterface(kx, ky) {
-            const result = calculateMoveDirection(kx, ky);
-            document.getElementById('move-coords').textContent = `${kx.toFixed(2)} / ${ky.toFixed(2)}`;
-            document.getElementById('direction').textContent = result.direction.toUpperCase();
-            document.getElementById('speed').textContent = `${result.speed}%`;
-        }
-
-        function resetMoveKnob() {
-            setMoveKnob(moveRadius, moveRadius);
-            updateMoveInterface(0, 0);
-            sendMoveCommand(0, 0);
-            if (moveCommandTimeout) {
-                clearTimeout(moveCommandTimeout);
-                moveCommandTimeout = null;
-            }
-        }
-
-        function handleMoveJoystick(clientX, clientY) {
-            const rect = movementJoystick.getBoundingClientRect();
-            let x = clientX - rect.left;
-            let y = clientY - rect.top;
-            let dx = x - moveRadius;
-            let dy = y - moveRadius;
-            let dist = Math.sqrt(dx*dx + dy*dy);
-            let maxDist = moveRadius - moveKnobRadius;
-            if (dist > maxDist) {
-                dx = dx * maxDist / dist;
-                dy = dy * maxDist / dist;
-            }
-            setMoveKnob(moveRadius + dx, moveRadius + dy);
-            // Conversion vers format serveur (kx, ky normalisés) - CORRECTION Y inversé
-            const kx = dx / maxDist;
-            const ky = -dy / maxDist;
-            updateMoveInterface(kx, ky);
-            if (moveCommandTimeout) {
-                clearTimeout(moveCommandTimeout);
-            }
-            moveCommandTimeout = setTimeout(() => {
-                sendMoveCommand(kx, ky);
-            }, MOVE_SEND_INTERVAL);
-        }
-
-        // Event listeners pour le joystick de mouvement
-        movementKnob.addEventListener('mousedown', function(e) {
-            movementDragging = true;
-            movementKnob.classList.add('active');
-            e.preventDefault();
-        });
-        document.addEventListener('mousemove', function(e) {
-            if (movementDragging) {
-                handleMoveJoystick(e.clientX, e.clientY);
-            }
-        });
-        document.addEventListener('mouseup', function(e) {
-            if (movementDragging) {
-                movementDragging = false;
-                movementKnob.classList.remove('active');
-                resetMoveKnob();
-            }
-        });
-        // Touch events
-        movementKnob.addEventListener('touchstart', function(e) {
-            movementDragging = true;
-            movementKnob.classList.add('active');
-            e.preventDefault();
-        });
-        document.addEventListener('touchmove', function(e) {
-            if (movementDragging && e.touches.length === 1) {
-                handleMoveJoystick(e.touches[0].clientX, e.touches[0].clientY);
-                e.preventDefault();
-            }
-        });
-        document.addEventListener('touchend', function(e) {
-            if (movementDragging) {
-                movementDragging = false;
-                movementKnob.classList.remove('active');
-                resetMoveKnob();
-            }
-        });
-        // Initial position
-        resetMoveKnob();
     </script>
 </body>
 </html>
