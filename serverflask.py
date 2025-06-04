@@ -2,6 +2,8 @@ from flask import Flask, render_template, request, jsonify
 from pidog import Pidog
 from math import pi, cos, sin
 import time
+import signal
+import sys
 
 app = Flask(__name__)
 my_dog = Pidog()
@@ -12,6 +14,24 @@ MIN_INTENSITY = 0.4
 # Vitesse minimale et maximale pour les servos
 MIN_SPEED = 85
 MAX_SPEED = 98
+
+def cleanup_gpio():
+    global my_dog
+    try:
+        if my_dog is not None:
+            my_dog.close()
+            my_dog = None
+    except Exception as e:
+        print(f"Error during cleanup: {e}")
+
+def signal_handler(sig, frame):
+    print('\nExiting...')
+    cleanup_gpio()
+    sys.exit(0)
+
+# Set up signal handlers
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
 
 # Mapping angle/intensité vers action Pidog
 def calculate_direction(angle, intensity):
@@ -64,4 +84,7 @@ def handle_command():
         return jsonify({'status': 'error', 'message': f'Erreur: {str(e)}'})
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, debug=True)
+    try:
+        app.run(host='0.0.0.0', port=8080, debug=True)
+    finally:
+        cleanup_gpio()
