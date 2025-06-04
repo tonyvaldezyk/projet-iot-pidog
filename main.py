@@ -5,9 +5,6 @@ from math import pi, atan2, sqrt, cos, sin
 from flask import Flask, render_template, request, jsonify
 import signal
 import sys
-import threading
-import random
-import time
 
 my_dog = Pidog()
 
@@ -26,10 +23,6 @@ current_status = STATUS_LIE
 MIN_SPEED = 85
 MAX_SPEED = 98
 DEADZONE = 0.35  # zone morte pour éviter les micro-mouvements
-
-autonomous_mode_enabled = False
-_autonomous_thread = None
-autonomous_lock = threading.Lock()
 
 def cleanup_gpio():
     global my_dog
@@ -141,92 +134,6 @@ def calculate_direction_from_kx_ky(kx, ky):
     else:
         return "stop", 0
 
-def autonomous_behavior():
-    global autonomous_mode_enabled
-    def check_stop():
-        with autonomous_lock:
-            return not autonomous_mode_enabled
-
-    # Actions statiques (non déplacement)
-    static_actions = [
-        lambda: my_dog.do_action('bark', speed=100),
-        lambda: my_dog.do_action('lie', speed=70),
-        lambda: my_dog.do_action('stretch', speed=80),
-        lambda: my_dog.do_action('wag_tail', speed=100),
-        lambda: my_dog.do_action('shake_head', speed=80),
-    ]
-
-    while True:
-        # 1. Aboyer pendant 30 secondes
-        if check_stop(): break
-        print('[AUTO] Barking for 30s')
-        my_dog.do_action('bark', speed=100)
-        for _ in range(3):
-            if check_stop(): break
-            sleep(1)
-        if check_stop(): break
-
-        # 2. Marche avant, évite les obstacles, pendant 10s
-        print('[AUTO] Walking forward for 10s')
-        t0 = time.time()
-        while time.time() - t0 < 15:
-            if check_stop(): break
-            dist = my_dog.read_distance()
-            if dist is not None and dist < 20:
-                print('[AUTO] Obstacle detected, avoiding')
-                turn = random.choice(['turn_left', 'turn_right'])
-                my_dog.do_action(turn, speed=random.randint(85, 98))
-                my_dog.wait_all_done()
-                my_dog.do_action('forward', speed=random.randint(85, 98))
-            else:
-                my_dog.do_action('forward', speed=random.randint(85, 98))
-            my_dog.wait_all_done()
-            sleep(0.5)
-        if check_stop(): break
-
-        # 3. Action statique aléatoire pendant 5s
-        action = random.choice(static_actions)
-        print(f'[AUTO] Static action for 5s: {action.__name__}')
-        action()
-        for _ in range(5):
-            if check_stop(): break
-            sleep(1)
-        if check_stop(): break
-
-        # 4. Se lever
-        print('[AUTO] Standing up')
-        my_dog.do_action('stand', speed=70)
-        my_dog.wait_all_done()
-        if check_stop(): break
-
-        # 5. Marche avant (10-15s), évite les obstacles
-        walk_time = random.randint(10, 15)
-        print(f'[AUTO] Walking forward for {walk_time}s')
-        t0 = time.time()
-        while time.time() - t0 < walk_time:
-            if check_stop(): break
-            dist = my_dog.read_distance()
-            if dist is not None and dist < 20:
-                print('[AUTO] Obstacle detected, avoiding')
-                turn = random.choice(['turn_left', 'turn_right'])
-                my_dog.do_action(turn, speed=random.randint(85, 98))
-                my_dog.wait_all_done()
-                my_dog.do_action('forward', speed=random.randint(85, 98))
-            else:
-                my_dog.do_action('forward', speed=random.randint(85, 98))
-            my_dog.wait_all_done()
-            sleep(0.5)
-        if check_stop(): break
-
-        # 6. Action statique aléatoire pendant 5s
-        action = random.choice(static_actions)
-        print(f'[AUTO] Static action for 5s: {action.__name__}')
-        action()
-        for _ in range(5):
-            if check_stop(): break
-            sleep(1)
-        if check_stop(): break
-
 # Flask App
 app = Flask(__name__)
 last_command = None
@@ -250,10 +157,7 @@ def handle_command():
     - {angle, intensity} depuis l'HTML
     - {kx, ky} depuis d'autres interfaces
     """
-    global last_command, autonomous_mode_enabled
-    with autonomous_lock:
-        if autonomous_mode_enabled:
-            autonomous_mode_enabled = False
+    global last_command
     
     if not my_dog.is_legs_done():
         return jsonify({'status': 'busy', 'message': 'Robot occupé'})
@@ -381,20 +285,6 @@ def get_status():
         })
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
-
-@app.route('/autonomous_mode', methods=['POST'])
-def set_autonomous_mode():
-    global autonomous_mode_enabled, _autonomous_thread
-    data = request.get_json()
-    enabled = bool(data.get('enabled', False))
-    with autonomous_lock:
-        if enabled and not autonomous_mode_enabled:
-            autonomous_mode_enabled = True
-            _autonomous_thread = threading.Thread(target=autonomous_behavior, daemon=True)
-            _autonomous_thread.start()
-        elif not enabled and autonomous_mode_enabled:
-            autonomous_mode_enabled = False
-    return jsonify({'status': 'success', 'enabled': autonomous_mode_enabled})
 
 if __name__ == "__main__":
     try:

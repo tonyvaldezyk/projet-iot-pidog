@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contrôleur PiDog - Avancé</title>
+    <title>Contrôleur PACO X1 - Avancé</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         * {
@@ -299,6 +299,12 @@
 </head>
 <body>
     <div class="gamepad-controller">
+        <div class="autonomous-panel" style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+            <label style="display:flex;align-items:center;font-weight:600;font-size:1.1rem;gap:10px;">
+                <input type="checkbox" id="autonomous-switch" style="width:22px;height:22px;"> Mode autonome
+            </label>
+            <span id="autonomous-status" style="font-size:1rem;color:#6366f1;font-weight:600;">OFF</span>
+        </div>
         <div class="connection-status">
             <div class="status-dot" id="connection-dot"></div>
             <span id="connection-text">Déconnecté</span>
@@ -410,6 +416,10 @@
         const connectionText = document.getElementById('connection-text');
         const videoContainer = document.getElementById('video-container');
         const videoPlaceholder = document.getElementById('video-placeholder');
+
+        // Ajout du switch autonome
+        const autonomousSwitch = document.getElementById('autonomous-switch');
+        const autonomousStatus = document.getElementById('autonomous-status');
 
         // Fonctions utilitaires
         function calculateDirection(kx, ky) {
@@ -751,6 +761,30 @@
                 .then(data => updateConnectionStatus(true))
                 .catch(error => updateConnectionStatus(false));
         });
+
+        // Ajout du switch autonome
+        autonomousSwitch.onchange = function() {
+            const enabled = autonomousSwitch.checked;
+            fetch('/autonomous_mode', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    autonomousStatus.textContent = enabled ? 'ON' : 'OFF';
+                    autonomousStatus.style.color = enabled ? '#10b981' : '#6366f1';
+                } else {
+                    document.getElementById('status').textContent = `❌ Erreur: ${data.message}`;
+                    autonomousSwitch.checked = !enabled;
+                }
+            })
+            .catch(() => {
+                document.getElementById('status').textContent = '🔴 Erreur de communication';
+                autonomousSwitch.checked = !enabled;
+            });
+        };
     </script>
 </body>
 </html>

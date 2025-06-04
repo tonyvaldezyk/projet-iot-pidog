@@ -159,6 +159,13 @@
         .direction-indicator.show {
             opacity: 1;
         }
+
+        .button-panel {
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
     </style>
 </head>
 <body>
@@ -169,6 +176,13 @@
             <div class="joystick-base"></div>
             <div class="joystick-knob" id="knob">⚡</div>
             <div class="direction-indicator" id="direction"></div>
+        </div>
+        
+        <div class="button-panel">
+            <label style="display:flex;align-items:center;font-weight:600;font-size:1.1rem;gap:10px;">
+                <input type="checkbox" id="autonomous-switch" style="width:22px;height:22px;"> Mode autonome
+            </label>
+            <span id="autonomous-status" style="margin-left:15px;font-size:1rem;color:#6366f1;font-weight:600;">OFF</span>
         </div>
         
         <div class="status-panel">
@@ -393,6 +407,32 @@
 
         // Initial position
         resetKnob();
+
+        // Ajout du switch autonome
+        const autonomousSwitch = document.getElementById('autonomous-switch');
+        const autonomousStatus = document.getElementById('autonomous-status');
+        autonomousSwitch.onchange = function() {
+            const enabled = autonomousSwitch.checked;
+            fetch('/autonomous_mode', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    autonomousStatus.textContent = enabled ? 'ON' : 'OFF';
+                    autonomousStatus.style.color = enabled ? '#10b981' : '#6366f1';
+                } else {
+                    statusDiv.textContent = `❌ Erreur: ${data.message}`;
+                    autonomousSwitch.checked = !enabled;
+                }
+            })
+            .catch(() => {
+                statusDiv.textContent = '🔴 Erreur de communication';
+                autonomousSwitch.checked = !enabled;
+            });
+        };
     </script>
 </body>
 </html>
