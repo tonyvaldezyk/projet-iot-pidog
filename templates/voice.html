@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dog Control Voice</title>
+  <link rel="stylesheet" href="Assets/styles/base.css">
+
+
+
+  <style>
+
+
+    body {
+        margin: 0;
+        padding: 0;
+        font-family: Arial, sans-serif;
+        background: linear-gradient(135deg, #1a1a2e, #16213e);
+        color: white;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+      }
+      
+      #app {
+        text-align: center;
+        width: 90%;
+        max-width: 400px;
+      }
+      
+      h1 {
+        margin-bottom: 20px;
+      }
+    
+      /* Switcher container */
+        
+      .live-analyse {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+        margin-top: 20px;
+      }
+    
+      .live-title {
+        font-size: 18px;
+        font-weight: bold;
+      }
+    
+    
+      /* Switcher styles */
+    .switch {
+        position: relative;
+        display: inline-block;
+        width: 50px;
+        height: 25px;
+      }
+      
+      .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      
+      .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, #ff0066, #ff4d6d);
+        border-radius: 25px;
+        transition: 0.4s;
+      }
+      
+      .slider:before {
+        position: absolute;
+        content: "";
+        height: 18px;
+        width: 18px;
+        left: 4px;
+        bottom: 3px;
+        background-color: white;
+        border-radius: 50%;
+        transition: 0.4s;
+      }
+      
+      input:checked + .slider {
+        background: linear-gradient(135deg, #00f2fe, #4facfe);
+      }
+      
+      input:checked + .slider:before {
+        transform: translateX(24px);
+      }
+      
+      /* Responsive styles */
+      @media (max-width: 600px) {
+        .live-title {
+          font-size: 16px;
+        }
+        .switch {
+          width: 40px;
+          height: 20px;
+        }
+        .slider:before {
+          height: 14px;
+          width: 14px;
+          bottom: 3px;
+          left: 3px;
+        }
+      }
+      
+      
+    
+      /* ------ version 2 ------
+      .recording-circle {
+        margin: 20px auto;
+        width: 150px;
+        height: 150px;
+        border-radius: 50%;
+        background: radial-gradient(circle, #0f3460, #16213e);
+        box-shadow: 0 0 25px 5px #0f3460;
+        animation: pulse 2s infinite;
+      }
+      
+      .recording-circle.active {
+        animation: sound-wave 1s infinite;
+      }
+        */
+    
+    
+    
+      .recording-circle {
+        margin: 20px auto;
+        width: 125px;
+        height: 125px;
+        border-radius: 50%;
+        background: radial-gradient(circle, #0f3460, #16213e);
+        box-shadow: 0 0 25px 5px #0f3460;
+        transform: scale(1); /* État de base */
+        transition: transform 0.1s ease-in-out; /* Lissage des pulsations */
+      }
+      
+      .recording-circle.active {
+        /* Supprimez l'animation si elle interfère */
+        /* animation: none; */
+      }
+    
+    
+      .highlight {
+        background-color: rgba(255, 255, 0, 0.3); /* Fond jaune semi-transparent */
+        border: 2px solid yellow; /* Bordure jaune */
+        transition: all 0.3s ease;
+      }
+    
+    
+    
+    
+    
+      
+      /* Style pour le container du loader, optionnel pour centrer l'animation */
+    #loader-container {
+        display: none; /* Masqué par défaut */
+        position: relative;
+        top: 50%;
+        left: 50%;
+        transform: translate(-10%, 2%);
+        z-index: 9999; /* S'assurer qu'il soit au-dessus du reste */
+      }
+      
+      /* Style pour le loader (spinner) */
+      .loader {
+        border: 8px solid #f3f3f3; /* Couleur de fond de la bordure */
+        border-top: 8px solid #3498db; /* Couleur de la partie animée */
+        border-radius: 50%;
+        width: 60px;
+        height: 60px;
+        animation: spin 1s linear infinite;
+      }
+      
+      /* Animation de rotation */
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    
+      
+      
+      @keyframes pulse {
+        0%, 100% {
+          box-shadow: 0 0 25px 5px #0f3460;
+        }
+        50% {
+          box-shadow: 0 0 35px 15px #0f3460;
+        }
+      }
+      
+      @keyframes sound-wave {
+        0%, 100% {
+          transform: scale(1);
+          box-shadow: 0 0 30px 10px #00f2fe, 0 0 50px 20px #16213e;
+        }
+        50% {
+          transform: scale(1.2);
+          box-shadow: 0 0 40px 15px #00f2fe, 0 0 70px 35px #16213e;
+        }
+      }
+      
+      .emotion-scores {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+        margin: 20px 0;
+      }
+      
+      .emotion {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px;
+        background: #0f3460;
+        border-radius: 10px;
+      }
+      
+      .controls button {
+        margin: 10px;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 25px;
+        font-size: 18px;
+        cursor: pointer;
+        transition: background 0.3s ease, transform 0.2s ease;
+      }
+      
+      button.start {
+        background: #00f2fe;
+        color: white;
+      }
+      
+      button.start:hover {
+        background: #4facfe;
+        transform: scale(1.05);
+      }
+      
+      button.stop {
+        background: #ff0066;
+        color: white;
+      }
+      
+      button.stop:hover {
+        background: #ff4d6d;
+        transform: scale(1.05);
+      }
+      
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    
+      /* Footer styles */
+    /* Footer styles */
+    .footer {
+        position: fixed; /* Fixe le footer en bas */
+        bottom: 0; /* Position à 0px du bas */
+        left: 0; /* S'assure qu'il commence à gauche */
+        width: 100%; /* S'étend sur toute la largeur de l'écran */
+        background: #16213e; /* Même fond que le reste */
+        color: white;
+        text-align: center; /* Centre le texte horizontalement */
+        padding: 10px 0;
+        font-size: 14px;
+        border-top: 1px solid #0f3460; /* Ligne au-dessus pour séparer */
+        z-index: 10; /* Toujours au-dessus des autres éléments */
+      }
+      
+      .footer p {
+        margin: 0;
+        padding: 0;
+        font-weight: bold;
+      }
+    
+    
+    
+    
+    
+    
+    
+      
+    
+     /* Action Result Display */
+     .action-result {
+      margin: 20px 0;
+      padding: 20px;
+      background: linear-gradient(135deg, #0f3460, #16213e);
+      border-radius: 15px;
+      border: 2px solid #00f2fe;
+      box-shadow: 0 0 20px rgba(0, 242, 254, 0.3);
+      min-height: 80px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    .action-label {
+      font-size: 16px;
+      color: #4facfe;
+      font-weight: bold;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .action-text {
+      font-size: 24px;
+      font-weight: bold;
+      color: #00f2fe;
+      text-align: center;
+      word-wrap: break-word;
+      text-shadow: 0 0 10px rgba(0, 242, 254, 0.5);
+    }
+    
+    .action-text.none {
+      color: #888;
+      font-style: italic;
+    }
+    
+    .transcription-display {
+      margin: 15px 0;
+      padding: 15px;
+      background: rgba(15, 52, 96, 0.3);
+      border-radius: 10px;
+      border-left: 4px solid #4facfe;
+    }
+    
+    .transcription-label {
+      font-size: 14px;
+      color: #4facfe;
+      margin-bottom: 8px;
+      font-weight: bold;
+    }
+    
+    .transcription-text {
+      font-size: 16px;
+      color: #ffffff;
+      font-style: italic;
+    }
+    
+
+
+  </style>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</head>
+<body>
+  <div id="app">
+    <h1>Dog Control Voice</h1>
+
+    <br/>
+    
+
+    <div class="recording-circle"></div>
+
+    <br/>
+
+    <div class="controls">
+        <button class="start" id="start-btn">Parler</button>
+        <button class="stop" id="stop-btn" disabled>Stop</button>
+    </div>
+
+    <br/>
+
+    <!-- Active Live Analyse Section 
+    <div class="live-analyse">
+      <span class="live-title">Active Live Analyse</span>
+      <label class="switch">
+        <input type="checkbox" id="live-switch">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <br/> -->
+
+    <div id="loader-container">
+        <h4 style="transform: translate(-38%, 2%);">Scan Emotion En Cour...</h4>
+        <div id="loader" class="loader"></div>
+      </div>
+
+      <br/>
+
+
+
+
+      
+    <div id="loader-container">
+        <h4>Analyse en cours...</h4>
+        <div id="loader" class="loader"></div>
+    </div>
+
+    <!-- Transcription Display -->
+    <div class="transcription-display" id="transcription-container" style="display: none;">
+      <div class="transcription-label">Transcription:</div>
+      <div class="transcription-text" id="transcription-text">--</div>
+    </div>
+
+    <!-- Action Result Display -->
+    <div class="action-result">
+      <div class="action-label">Action Détectée</div>
+      <div class="action-text" id="action-display">En attente...</div>
+    </div>
+
+
+    <!-- 
+    <div class="emotion-scores">
+      <div class="emotion" id="score-joie-component">
+        <span>Joie</span>
+        <span class="score" id="score-joie">0 / 5</span> 
+      </div>
+      <div class="emotion" id="score-amour-component" >
+        <span>Amour</span>
+        <span class="score" id="score-amour">0 / 5</span>
+      </div>
+      <div class="emotion" id="score-tristesse-component">
+        <span>Tristesse</span>
+        <span class="score" id="score-tristesse">0 / 5</span>
+      </div>
+      <div class="emotion" id="score-surprise-component">
+        <span>Surprise</span>
+        <span class="score" id="score-surprise">0 / 5</span>
+      </div>
+      <div class="emotion" id="score-peur-component">
+        <span>Peur</span>
+        <span class="score" id="score-peur">0 / 5</span>
+      </div>
+      <div class="emotion" id="score-colere-component">
+        <span>Colère</span>
+        <span class="score" id="score-colere">0 / 5</span>
+      </div>
+    </div>
+    --> 
+
+
+
+   
+  </div>
+
+
+  
+  <footer class="footer">
+    <p>&copy; 2025 @hetic</p>
+  </footer>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <script>
+
+
+/*
+Action a implementer  par vocal :
+ - 
+ - 
+ - ASSIT
+ - DEBOUT
+ - REMUER LA QUEUE
+ - MARCHE AVANT / AVANCER
+ - MARCHE ARRIERE / RECULER
+ - ARRET
+ - SE GRATTER
+ - SUIVRE
+
+
+*/
+
+//let url_server_control = "http://127.0.0.1:5000";
+//let url_server_voice = "http://127.0.0.1:8000";
+//let url_server_websocket = "ws://127.0.0.1:8000/ws";
+
+
+
+
+//let url_server_control = "http://vbrain.local:5000";
+//let url_server_voice = "http://vbrain.local:8000";
+//let url_server_websocket = "ws://vbrain.local:8000/ws";
+
+let url_server_control = "http://192.168.106.1:5000"
+let url_server_voice = "http://192.168.106.1:8000";
+let url_server_websocket = "ws://192.168.106.191:8000/ws";
+
+
+
+let isRecording = false;
+let audioContext = null;
+let socket = null;
+let liveStreamActive = false;
+
+let cibles_component_top_sensation = null
+
+const loaderContainer = document.getElementById("loader-container");
+
+const actionDisplay = document.getElementById('action-display');
+const transcriptionContainer = document.getElementById('transcription-container');
+const transcriptionText = document.getElementById('transcription-text');
+
+
+// Afficher l'action avec style
+function displayAction(action) {
+  const actionElement = document.getElementById('action-display');
+  
+  if (action === 'none' || !action) {
+    actionElement.textContent = 'Aucune action détectée';
+    actionElement.className = 'action-text none';
+  } else {
+    actionElement.textContent = action;
+    actionElement.className = 'action-text';
+  }
+}
+
+function hideLoader() {
+  loaderContainer.style.display = 'none';
+}
+
+
+
+
+
+
+
+
+
+
+//--------- ACTIONS CONTROL ---------
+
+
+
+
+
+function sendAction(action) {
+  fetch(url_server_control+"/action", {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: action })
+  })
+  .then(response => response.json())
+  .then(data => {
+      document.getElementById('status').textContent = 
+          data.status === 'success' ? `✅ ${action}` : `❌ Erreur`;
+  })
+  .catch(error => {
+      document.getElementById('status').textContent = '🔴 Erreur action';
+  });
+}
+
+
+function toggleFaceDetection() {
+  faceDetectionEnabled = !faceDetectionEnabled;
+  //const toggle = document.getElementById('face-toggle');
+  
+  /*
+  if (faceDetectionEnabled) {
+      toggle.classList.add('active');
+      toggle.textContent = '👁️ Détection Visage: ON';
+  } else {
+      toggle.classList.remove('active');
+      toggle.textContent = '👁️ Détection Visage: OFF';
+  }
+      */
+
+  fetch(url_server_control+"/face_detection", {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: faceDetectionEnabled })
+  })
+  .catch(error => console.log('Face detection control not implemented yet'));
+}
+
+
+function sendDirection(direction) {
+  let kx = 0, ky = 0;
+  const max = 1.0;
+  if (direction === 'forward') ky = max;
+  else if (direction === 'backward') ky = -max;
+  else if (direction === 'left') kx = -max;
+  else if (direction === 'right') kx = max;
+  // stop: kx=0, ky=0
+  fetch('/command', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kx: kx, ky: ky })
+  })
+  .then(response => response.json())
+  .then(data => {
+      if (data.status === 'success') {
+          statusDiv.textContent = `✅ ${data.message}`;
+      } else if (data.status === 'busy') {
+          statusDiv.textContent = '⏳ Robot occupé, réessai...';
+      } else {
+          statusDiv.textContent = `❌ Erreur: ${data.message}`;
+      }
+  })
+  .catch((error) => {
+      statusDiv.textContent = '🔴 Erreur de communication';
+  });
+}
+
+
+
+//--------- END ACTIONS CONTROL ---------
+//----------------------------------------
+
+
+// Initialisation des WebSocket
+function initWebSocket() {
+  //socket = new WebSocket("ws://127.0.0.1:8000/ws/audio"); // Remplacez avec votre URL WebSocket
+  socket = new WebSocket(url_server_websocket+"/audio");
+
+  socket.onmessage = (event) => {
+    const data_parse = JSON.parse(event.data);
+    
+
+    loaderContainer.style.display = "none";
+
+
+    /*
+    document.getElementById("score-joie-component").classList.remove("highlight");
+    document.getElementById("score-amour-component").classList.remove("highlight");
+    document.getElementById("score-tristesse-component").classList.remove("highlight");
+    document.getElementById("score-surprise-component").classList.remove("highlight");
+    document.getElementById("score-peur-component").classList.remove("highlight");
+    document.getElementById("score-colere-component").classList.remove("highlight");
+    */
+    
+
+    // Verification du message serveur 
+    if (data_parse.typeResponse === "alert") {
+      console.log("\n \n Message recue du serveur  :: ");
+      console.log(data_parse.data);
+      
+    }else if (data_parse.typeResponse === "resultTranscript"){
+        
+        //console.log("Message du serveur top_sensation : data_parse.top_sensation :: ", data_parse.top_sensation);
+        console.log("Message du serveur : data_parse :: ", data_parse);
+
+        hideLoader();
+          
+          // Afficher la transcription
+          if (data_parse.data.text_transcript) {
+            transcriptionText.textContent = data_parse.data.text_transcript;
+            transcriptionContainer.style.display = 'block';
+          }
+          
+          // Afficher l'action détectée
+          const action = data_parse.data.action_do || 'none';
+          displayAction(action);
+
+
+          if (action === "coucher") {
+            sendAction("lie_down");
+          }
+
+          if (action === "assis") {
+            sendAction("sit");
+          }
+
+          if (action === "debout") {
+            sendAction("stand_up");
+          }
+
+          if (action === "avance") {
+            sendDirection("forward");
+          }
+
+          if (action === "rentre_derriere") {
+            sendDirection("backward");
+          }
+
+          if (action === "remuer_queue") {
+            sendAction("wag_tail");
+          }
+
+          if (action === "tourne_droite") {
+            sendDirection("right");
+          }
+
+          if (action === "tourne_gauche") {
+            sendDirection("left");
+          }
+
+          if (action === "arreter") {
+            sendDirection("stop");
+          }
+
+          if (action === "aboyer") {
+            sendAction("bark");
+          }
+
+          if (action === "saluer") {
+            sendAction("scratch");
+          }
+
+         
+
+
+
+
+
+
+
+        /*
+        document.getElementById("score-colere").textContent = `${data_score_sensational.colere} / 5`;
+        document.getElementById("score-peur").textContent = `${data_score_sensational.peur} / 5`;
+        document.getElementById("score-joie").textContent = `${data_score_sensational.joie} / 5`;
+        document.getElementById("score-amour").textContent = `${data_score_sensational.amour} / 5`;
+        document.getElementById("score-tristesse").textContent = `${data_score_sensational.tristesse} / 5`;
+        document.getElementById("score-surprise").textContent = `${data_score_sensational.surprise} / 5`;
+        
+
+        let topsensation = "score-"+data_parse.top_sensation+"-component";
+        cibles_component_top_sensation = document.getElementById(topsensation);
+        if (cibles_component_top_sensation) {
+            // Ajout de la classe pour mettre en surbrillance
+            cibles_component_top_sensation.classList.add("highlight");
+          }
+            */
+        
+    } else{
+        console.log("Message du serveur :", event.data);
+ 
+    }
+
+   
+  };
+
+  socket.onopen = () => console.log("WebSocket connecté");
+  socket.onclose = () => console.log("WebSocket déconnecté");
+}
+
+
+function init_state() {
+    
+    if (cibles_component_top_sensation) {
+        // Ajout de la classe pour mettre en surbrillance
+        cibles_component_top_sensation.classList.remove("highlight");
+      }
+
+      /*
+      document.getElementById("score-colere").textContent = `0 / 5`;
+      document.getElementById("score-peur").textContent = `0 / 5`;
+      document.getElementById("score-joie").textContent = `0 / 5`;
+      document.getElementById("score-amour").textContent = `0 / 5`;
+      document.getElementById("score-tristesse").textContent = `0 / 5`;
+      document.getElementById("score-surprise").textContent = `0 / 5`;
+      */
+
+      loaderContainer.style.display = "none";
+
+     
+
+}
+
+
+// Gestion de l'enregistrement audio
+async function startRecording() {
+
+    // Démarrage WebSocket
+    initWebSocket();
+
+
+
+  const recordingCircle = document.querySelector(".recording-circle");
+  isRecording = true;
+  recordingCircle.classList.add("active");
+
+  // Configuration AudioContext
+  audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  const analyser = audioContext.createAnalyser();
+  analyser.fftSize = 256;
+
+  // Récupérer le flux audio
+  audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const source = audioContext.createMediaStreamSource(audioStream);
+  source.connect(analyser);
+
+  visualizeAudio(analyser);
+
+
+
+
+
+   // Création du MediaRecorder pour envoyer les chunks audio au serveur
+   mediaRecorder = new MediaRecorder(audioStream, { mimeType: 'audio/webm' });
+  
+   // À chaque disponibilité d'un chunk (ici, toutes les 1 seconde), on l'envoie au serveur
+   mediaRecorder.ondataavailable = (event) => {
+     if (event.data && event.data.size > 0 && socket.readyState === WebSocket.OPEN) {
+       // On envoie le chunk en tant que données binaires
+       console.log('donnee envoyer au serveur ::  '+event.data+ '       //  TAILLE :' + event.data.size);
+       socket.send(event.data);
+     }
+   };
+   
+   // Démarrer l'enregistrement avec un intervalle de 1 seconde
+   mediaRecorder.start(1000);
+
+
+}
+
+
+
+
+function stopRecording() {
+
+
+    loaderContainer.style.display = "block";
+
+
+  const recordingCircle = document.querySelector(".recording-circle");
+  isRecording = false;
+  recordingCircle.classList.remove("active");
+
+    // Arrêter MediaRecorder pour stopper l'envoi de chunks
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        mediaRecorder.stop();
+      }
+
+  if (audioContext) {
+    audioContext.close();
+    audioContext = null;
+  }
+
+  // Envoi d'une requête au serveur WebSocket
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({ action: "stop-recording" }));
+  }
+
+   // Libérer le micro
+   if (audioStream) {
+    audioStream.getTracks().forEach((track) => track.stop());
+    audioStream = null;
+
+    let intensity_reset = 0.5
+    const recordingCircle = document.querySelector(".recording-circle");
+    recordingCircle.style.transform = `scale(${intensity_reset})`;
+    recordingCircle.style.boxShadow = `0 0 25px 5px #0f3460`;
+  }
+}
+
+// Visualisation des données audio
+function visualizeAudio(analyser) {
+
+
+  const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+  function draw() {
+    if (!isRecording) return;
+
+    // Récupérer les données de fréquence audio
+    analyser.getByteFrequencyData(dataArray);
+
+    // Calculer l'intensité moyenne
+    const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+
+    // Définir une échelle minimale pour les pulsations
+    const minScale = 1; // État de base
+    const maxScale = 1.5; // État maximal
+
+    // Seuil pour considérer un silence (20 ou moins)
+    const silenceThreshold = 20;
+    const intensity = avg > silenceThreshold 
+      ? Math.min(minScale + avg / 256, maxScale) 
+      : minScale;
+
+    // Appliquer l'échelle calculée à l'élément
+    const recordingCircle = document.querySelector(".recording-circle");
+    recordingCircle.style.transform = `scale(${intensity})`;
+    recordingCircle.style.boxShadow = `0 0 ${intensity * 20}px ${intensity * 10}px #00f2fe`;
+
+
+    // Afficher l'intensité dans la console pour diagnostic
+    console.log(`Intensité sonore : ${avg.toFixed(2)}, Échelle : ${intensity.toFixed(2)}`);
+
+    // Demander un nouveau dessin
+    requestAnimationFrame(draw);
+  }
+
+  draw();
+
+
+}
+
+
+
+
+// JS : Gérer le switcher
+/*
+document.getElementById("live-switch").addEventListener("change", (event) => {
+    const isLive = event.target.checked;
+  
+    if (isLive) {
+      console.log("Analyse en direct activée !");
+      liveStreamActive = true;
+      // Ajoutez ici la logique pour activer l'analyse en direct
+    } else {
+      console.log("Analyse en direct désactivée !");
+      liveStreamActive = false;
+      // Ajoutez ici la logique pour désactiver l'analyse en direct
+    }
+  }); */
+
+// Initialisation des événements
+document.getElementById("start-btn").addEventListener("click", () => {
+  startRecording();
+  document.getElementById("start-btn").disabled = true;
+  document.getElementById("stop-btn").disabled = false;
+});
+
+document.getElementById("stop-btn").addEventListener("click", () => {
+  stopRecording();
+  document.getElementById("start-btn").disabled = false;
+  document.getElementById("stop-btn").disabled = true;
+});
+
+// Démarrage WebSocket
+initWebSocket();
+
+
+
+
+
+
+
+
+  </script>
+</body>
+</html>
+
+
+
