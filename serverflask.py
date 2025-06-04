@@ -1,9 +1,23 @@
 from flask import Flask, render_template, request, jsonify
-from pidog import Pidog
 from math import atan2, sqrt, pi
 import time
 import signal
 import sys
+import os
+import subprocess
+
+# Libérer les GPIO avant toute initialisation
+try:
+    subprocess.run(['sudo', 'pkill', '-f', 'pigpiod'], check=False)
+    time.sleep(1)
+    subprocess.run(['sudo', 'killall', 'python3'], check=False)
+    time.sleep(1)
+    subprocess.run(['sudo', 'pigpiod'], check=True)
+    time.sleep(1)
+except Exception as e:
+    print(f"[WARN] Impossible de libérer les GPIO automatiquement : {e}")
+
+from pidog import Pidog
 
 app = Flask(__name__)
 my_dog = Pidog()
