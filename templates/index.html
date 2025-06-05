@@ -3,63 +3,467 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contrôleur PiDog - Simple</title>
+    <title>Contrôleur PiDog - Accueil</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        body {
+            background: linear-gradient(135deg, #e0e7ff 0%, #f8fafc 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Montserrat', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+
+        /* Navigation Header */
+        .nav-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(15px);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+            z-index: 1000;
+            border-bottom: 1px solid rgba(255,255,255,0.3);
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .nav-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 20px;
+            background: linear-gradient(145deg, #6366f1, #4f46e5);
+            color: white;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .nav-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(99,102,241,0.4);
+        }
+
+        .nav-btn.active {
+            background: linear-gradient(145deg, #10b981, #059669);
+        }
+
+        .ip-config {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255,255,255,0.1);
+            padding: 8px 15px;
+            border-radius: 25px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .ip-input {
+            background: rgba(255,255,255,0.9);
+            border: 1px solid rgba(99,102,241,0.3);
+            border-radius: 15px;
+            padding: 6px 12px;
+            font-size: 0.9rem;
+            width: 140px;
+            color: #1e40af;
+            font-weight: 600;
+        }
+
+        .connect-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 15px;
+            background: linear-gradient(145deg, #10b981, #059669);
+            color: white;
+            font-weight: 600;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .connect-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .ip-status {
+            font-size: 0.8rem;
+            color: #2c3e50;
+            font-weight: 600;
+        }
+
+        .controller {
+            background: rgba(255,255,255,0.8);
+            border-radius: 25px;
+            box-shadow: 0 10px 40px 0 rgba(31, 38, 135, 0.2);
+            backdrop-filter: blur(10px);
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 1px solid rgba(255,255,255,0.4);
+            margin-top: 80px;
+            transition: opacity 0.3s ease;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        .controller.autonomous-active {
+            opacity: 0.7;
+        }
+
+        .controller.autonomous-active .button-panel {
+            pointer-events: none;
+        }
+
+        .controller h1 {
+            margin-bottom: 30px;
+            color: #2c3e50;
+            letter-spacing: 2px;
+            font-size: 1.8rem;
+            text-shadow: 0 2px 8px rgba(255,255,255,0.5);
+        }
+
+        .button-panel {
+            display: flex;
+            justify-content: center;
+            margin: 10px 0;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .ctrl-btn {
+            background: linear-gradient(135deg, #6366f1 60%, #818cf8 100%);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            padding: 18px 32px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px #6366f133;
+            transition: all 0.2s ease;
+            min-width: 120px;
+        }
+
+        .ctrl-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px #6366f155;
+        }
+
+        .ctrl-btn:active {
+            background: linear-gradient(135deg, #818cf8 60%, #6366f1 100%);
+            transform: scale(0.97);
+        }
+
+        .ctrl-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .autonomous-control {
+            margin: 20px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            background: rgba(99,102,241,0.1);
+            padding: 15px 20px;
+            border-radius: 20px;
+            border: 1px solid rgba(99,102,241,0.3);
+            transition: all 0.3s ease;
+        }
+
+        .autonomous-control.active {
+            background: rgba(99,102,241,0.3);
+            border-color: #6366f1;
+            box-shadow: 0 0 15px rgba(99,102,241,0.3);
+        }
+
+        .autonomous-control label {
+            display: flex;
+            align-items: center;
+            font-weight: 600;
+            font-size: 1.1rem;
+            gap: 10px;
+            color: #2c3e50;
+            cursor: pointer;
+        }
+
+        .autonomous-status {
+            font-size: 1rem;
+            color: #6366f1;
+            font-weight: 600;
+            padding: 8px 15px;
+            border-radius: 15px;
+            background: rgba(255,255,255,0.8);
+            transition: all 0.3s ease;
+        }
+
+        .autonomous-warning {
+            display: none;
+            color: #dc2626;
+            font-size: 0.9rem;
+            font-weight: 600;
+            animation: pulse 2s infinite;
+        }
+
+        .autonomous-control.active .autonomous-warning {
+            display: block;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .status-panel {
+            background: rgba(255,255,255,0.6);
+            border-radius: 15px;
+            padding: 20px 25px;
+            box-shadow: 0 3px 12px rgba(99, 102, 241, 0.1);
+            text-align: center;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+            color: #2c3e50;
+        }
+
+        .status-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .status-label {
+            font-weight: 600;
+        }
+
+        .status-value {
+            font-weight: 700;
+            color: #6366f1;
+        }
+
+        .status-message {
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(99, 102, 241, 0.1);
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: #4f46e5;
+            border-left: 3px solid #6366f1;
+        }
+
+        @media (max-width: 768px) {
+            .nav-header {
+                flex-direction: column;
+                gap: 10px;
+                padding: 10px;
+            }
+
+            .ip-config {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .controller {
+                margin-top: 120px;
+                width: 95%;
+                padding: 20px;
+            }
+
+            .ctrl-btn {
+                font-size: 1rem;
+                padding: 15px 25px;
+                min-width: 100px;
+            }
+
+            .button-panel {
+                justify-content: center;
+            }
+        }
+    </style>
 </head>
 <body>
-    <nav style="margin-bottom:20px;display:flex;gap:10px;">
-        <a href="/" style="padding:7px 18px;background:#6366f1;color:white;border-radius:6px;text-decoration:none;font-weight:600;">Basic</a>
-        <a href="/simple" style="padding:7px 18px;background:#e0e7ff;color:#3730a3;border-radius:6px;text-decoration:none;font-weight:600;">Simple</a>
-        <a href="/advanced" style="padding:7px 18px;background:#e0e7ff;color:#3730a3;border-radius:6px;text-decoration:none;font-weight:600;">Advanced</a>
-    </nav>
-    <div style="margin-bottom:15px;">
-        <label for="robot-address" style="font-weight:600;">Adresse du robot :</label>
-        <input type="text" id="robot-address" placeholder="ex: 192.168.1.100:5000" style="padding:5px 10px;min-width:220px;">
+    <!-- Navigation Header -->
+    <div class="nav-header">
+        <div class="nav-buttons">
+            <a href="#" class="nav-btn active" onclick="switchInterface('home')">🏠 Accueil</a>
+            <a href="#" class="nav-btn" onclick="switchInterface('simple')">🎮 Simple</a>
+            <a href="#" class="nav-btn" onclick="switchInterface('vocal')">🎤 Mode vocal</a>
+            <a href="#" class="nav-btn" onclick="switchInterface('advanced')">⚡ Avancé</a>
+        </div>
+        
+        <div class="ip-config">
+            <span class="ip-status">IP Robot:</span>
+            <input type="text" class="ip-input" id="robot-ip" value="localhost" placeholder="192.168.1.100">
+            <button class="connect-btn" onclick="connectRobot()">Connecter</button>
+        </div>
     </div>
-    <div class="controller">
+
+    <div class="controller" id="controller">
         <h1>🐕 PiDog Contrôle Simple</h1>
+        
         <div class="button-panel">
             <button class="ctrl-btn" id="btn-forward">⬆️ Avancer</button>
         </div>
+        
         <div class="button-panel">
             <button class="ctrl-btn" id="btn-left">⬅️ Gauche</button>
             <button class="ctrl-btn" id="btn-stop">⏹️ Stop</button>
             <button class="ctrl-btn" id="btn-right">➡️ Droite</button>
         </div>
+        
         <div class="button-panel">
             <button class="ctrl-btn" id="btn-backward">⬇️ Reculer</button>
         </div>
-        <div class="button-panel">
-            <label style="display:flex;align-items:center;font-weight:600;font-size:1.1rem;gap:10px;">
-                <input type="checkbox" id="autonomous-switch" style="width:22px;height:22px;"> Mode autonome
+        
+        <div class="autonomous-control" id="autonomous-panel">
+            <label>
+                <input type="checkbox" id="autonomous-switch" style="width:22px;height:22px;accent-color:#6366f1;">
+                Mode autonome
             </label>
-            <span id="autonomous-status" style="margin-left:15px;font-size:1rem;color:#6366f1;font-weight:600;">OFF</span>
+            <span class="autonomous-status" id="autonomous-status">OFF</span>
+            <span class="autonomous-warning">⚠️ Contrôles désactivés</span>
         </div>
+        
         <div class="status-panel">
+            <div class="status-row">
+                <span class="status-label">État du robot:</span>
+                <span class="status-value" id="robot-state">IDLE</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Mode:</span>
+                <span class="status-value" id="mode-display">MANUEL</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Dernière commande:</span>
+                <span class="status-value" id="last-command">AUCUNE</span>
+            </div>
             <div class="status-message" id="status">🔄 En attente de commande...</div>
         </div>
     </div>
 
     <script>
-        const statusDiv = document.getElementById('status');
-        function getRobotBaseUrl() {
-            const addr = document.getElementById('robot-address').value.trim();
-            if (addr) {
-                return (addr.startsWith('http') ? addr : 'http://' + addr);
+        // ===== CONFIGURATION IP =====
+        let ROBOT_BASE_URL = 'http://localhost:5000';
+        
+        function connectRobot() {
+            const ipInput = document.getElementById('robot-ip');
+            const ip = ipInput.value.trim();
+            
+            if (ip) {
+                let baseUrl = ip;
+                if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+                    baseUrl = 'http://' + baseUrl;
+                }
+                if (!baseUrl.includes(':') || baseUrl.endsWith('/')) {
+                    baseUrl += ':5000';
+                }
+                
+                ROBOT_BASE_URL = baseUrl;
+                statusDiv.textContent = `🔄 Connexion à ${baseUrl}...`;
+                
+                // Tester la connexion
+                sendDirection('stop');
             }
-            return '';
         }
-        function sendDirection(direction) {
+
+        function switchInterface(type) {
+            if (type === 'simple') {
+                alert('Redirection vers l\'interface simple (joystick unique)');
+                // window.location.href = 'simple.html';
+            } else if (type === 'advanced') {
+                alert('Redirection vers l\'interface avancée (double joystick)');
+                // window.location.href = 'advanced.html';
+            }
+            // 'home' = page actuelle
+        }
+
+        // ===== ÉLÉMENTS DOM =====
+        const statusDiv = document.getElementById('status');
+        const controller = document.getElementById('controller');
+        const autonomousSwitch = document.getElementById('autonomous-switch');
+        const autonomousStatus = document.getElementById('autonomous-status');
+        const autonomousPanel = document.getElementById('autonomous-panel');
+        const robotState = document.getElementById('robot-state');
+        const modeDisplay = document.getElementById('mode-display');
+        const lastCommand = document.getElementById('last-command');
+        const controlButtons = document.querySelectorAll('.ctrl-btn');
+        
+        let autonomousMode = false;
+
+        // ===== GESTION DU MODE AUTONOME =====
+        function setAutonomousUI(enabled) {
+            autonomousMode = enabled;
+            
+            if (enabled) {
+                controller.classList.add('autonomous-active');
+                autonomousPanel.classList.add('active');
+                autonomousStatus.textContent = 'ON';
+                autonomousStatus.style.background = '#10b981';
+                autonomousStatus.style.color = 'white';
+                modeDisplay.textContent = 'AUTONOME';
+                modeDisplay.style.color = '#6366f1';
+                
+                // Désactiver les boutons
+                controlButtons.forEach(btn => btn.disabled = true);
+                
+                // Envoyer un signal d'arrêt
+                sendDirection('stop', true);
+            } else {
+                controller.classList.remove('autonomous-active');
+                autonomousPanel.classList.remove('active');
+                autonomousStatus.textContent = 'OFF';
+                autonomousStatus.style.background = 'rgba(255,255,255,0.8)';
+                autonomousStatus.style.color = '#6366f1';
+                modeDisplay.textContent = 'MANUEL';
+                modeDisplay.style.color = '#1e40af';
+                
+                // Réactiver les boutons
+                controlButtons.forEach(btn => btn.disabled = false);
+            }
+        }
+
+        // ===== LOGIQUE DE CONTRÔLE =====
+        function sendDirection(direction, force = false) {
+            // Ne pas envoyer si en mode autonome, sauf si forcé
+            if (autonomousMode && !force) {
+                statusDiv.textContent = '⚠️ Mode autonome actif';
+                return;
+            }
+            
             let kx = 0, ky = 0;
             const max = 1.0;
+            
             if (direction === 'forward') ky = max;
             else if (direction === 'backward') ky = -max;
             else if (direction === 'left') kx = -max;
             else if (direction === 'right') kx = max;
             // stop: kx=0, ky=0
-            const baseUrl = getRobotBaseUrl();
-            fetch((baseUrl ? baseUrl : '') + '/command', {
+            
+            lastCommand.textContent = direction.toUpperCase();
+            
+            fetch(ROBOT_BASE_URL + '/command', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ kx: kx, ky: ky })
@@ -68,28 +472,36 @@
             .then(data => {
                 if (data.status === 'success') {
                     statusDiv.textContent = `✅ ${data.message}`;
+                    robotState.textContent = 'ACTIF';
                 } else if (data.status === 'busy') {
                     statusDiv.textContent = '⏳ Robot occupé, réessai...';
+                    robotState.textContent = 'OCCUPÉ';
+                    // Réessayer après un délai
+                    setTimeout(() => sendDirection(direction, force), 300);
                 } else {
                     statusDiv.textContent = `❌ Erreur: ${data.message}`;
+                    robotState.textContent = 'ERREUR';
                 }
             })
             .catch((error) => {
                 statusDiv.textContent = '🔴 Erreur de communication';
+                robotState.textContent = 'DÉCONNECTÉ';
+                console.error('Erreur:', error);
             });
         }
+
+        // ===== EVENT LISTENERS =====
         document.getElementById('btn-forward').onclick = () => sendDirection('forward');
         document.getElementById('btn-backward').onclick = () => sendDirection('backward');
         document.getElementById('btn-left').onclick = () => sendDirection('left');
         document.getElementById('btn-right').onclick = () => sendDirection('right');
         document.getElementById('btn-stop').onclick = () => sendDirection('stop');
 
-        // Ajout du switch autonome
-        const autonomousSwitch = document.getElementById('autonomous-switch');
-        const autonomousStatus = document.getElementById('autonomous-status');
+        // Mode autonome
         autonomousSwitch.onchange = function() {
             const enabled = autonomousSwitch.checked;
-            fetch((getRobotBaseUrl() ? getRobotBaseUrl() : '') + '/autonomous_mode', {
+            
+            fetch(ROBOT_BASE_URL + '/autonomous_mode', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ enabled })
@@ -97,8 +509,8 @@
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
-                    autonomousStatus.textContent = enabled ? 'ON' : 'OFF';
-                    autonomousStatus.style.color = enabled ? '#10b981' : '#6366f1';
+                    setAutonomousUI(enabled);
+                    statusDiv.textContent = data.message;
                 } else {
                     statusDiv.textContent = `❌ Erreur: ${data.message}`;
                     autonomousSwitch.checked = !enabled;
@@ -109,6 +521,46 @@
                 autonomousSwitch.checked = !enabled;
             });
         };
+
+        // ===== CONTRÔLES CLAVIER =====
+        document.addEventListener('keydown', function(e) {
+            if (autonomousMode) return;
+            
+            switch(e.key) {
+                case 'ArrowUp':
+                case 'z':
+                case 'Z':
+                    e.preventDefault();
+                    sendDirection('forward');
+                    break;
+                case 'ArrowDown':
+                case 's':
+                case 'S':
+                    e.preventDefault();
+                    sendDirection('backward');
+                    break;
+                case 'ArrowLeft':
+                case 'q':
+                case 'Q':
+                    e.preventDefault();
+                    sendDirection('left');
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                case 'D':
+                    e.preventDefault();
+                    sendDirection('right');
+                    break;
+                case ' ':
+                    e.preventDefault();
+                    sendDirection('stop');
+                    break;
+            }
+        });
+
+        // ===== INITIALISATION =====
+        console.log('🐕 PiDog Controller Home - Initialisé');
+        console.log('💡 Utilisez les flèches du clavier ou ZQSD + Espace pour arrêter');
     </script>
 </body>
 </html>

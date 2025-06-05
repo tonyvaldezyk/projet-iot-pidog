@@ -3,37 +3,461 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contrôleur PACO X1 - Avancé</title>
+    <title>PiDog Controller - Mode Autonome Corrigé</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1e1b4b 0%, #3730a3 50%, #1e40af 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Montserrat', Arial, sans-serif;
+            overflow-x: hidden;
+            padding: 20px;
+        }
+
+        /* Navigation Header */
+        .nav-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(15px);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+            z-index: 1000;
+            border-bottom: 1px solid rgba(255,255,255,0.3);
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .nav-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 20px;
+            background: linear-gradient(145deg, #6366f1, #4f46e5);
+            color: white;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .nav-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(99,102,241,0.4);
+        }
+
+        .nav-btn.active {
+            background: linear-gradient(145deg, #10b981, #059669);
+        }
+
+        .ip-config {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255,255,255,0.1);
+            padding: 8px 15px;
+            border-radius: 25px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .ip-input {
+            background: rgba(255,255,255,0.9);
+            border: 1px solid rgba(99,102,241,0.3);
+            border-radius: 15px;
+            padding: 6px 12px;
+            font-size: 0.9rem;
+            width: 140px;
+            color: #1e40af;
+            font-weight: 600;
+        }
+
+        .connect-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 15px;
+            background: linear-gradient(145deg, #10b981, #059669);
+            color: white;
+            font-weight: 600;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .connect-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .ip-status {
+            font-size: 0.8rem;
+            color: #1e40af;
+            font-weight: 600;
+        }
+
+        .gamepad-controller {
+            background: rgba(255,255,255,0.95);
+            border-radius: 35px;
+            box-shadow: 0 15px 50px rgba(0,0,0,0.3);
+            backdrop-filter: blur(15px);
+            padding: 30px;
+            display: grid;
+            grid-template-columns: 200px 1fr 200px;
+            grid-template-rows: auto auto 1fr auto;
+            gap: 20px;
+            width: 90vw;
+            max-width: 1000px;
+            height: 75vh;
+            position: relative;
+            border: 2px solid rgba(255,255,255,0.5);
+            transition: opacity 0.3s ease;
+            margin-top: 60px;
+        }
+
+        /* Mode autonome activé - désactive visuellement les contrôles */
+        .gamepad-controller.autonomous-active .left-controls,
+        .gamepad-controller.autonomous-active .right-controls {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        .gamepad-controller.autonomous-active::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(99,102,241,0.05);
+            border-radius: 35px;
+            pointer-events: none;
+        }
+
+        .header {
+            grid-column: 1 / -1;
+            text-align: center;
+            color: #1e40af;
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .autonomous-panel {
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            background: rgba(99,102,241,0.1);
+            border-radius: 20px;
+            padding: 15px;
+            border: 1px solid rgba(99,102,241,0.3);
+            transition: all 0.3s ease;
+        }
+
+        .autonomous-panel.active {
+            background: rgba(99,102,241,0.3);
+            border-color: #6366f1;
+            box-shadow: 0 0 20px rgba(99,102,241,0.4);
+        }
+
+        .autonomous-panel label {
+            display: flex;
+            align-items: center;
+            font-weight: 600;
+            font-size: 1.1rem;
+            gap: 10px;
+            color: #1e40af;
+            cursor: pointer;
+        }
+
+        .autonomous-warning {
+            display: none;
+            color: #dc2626;
+            font-size: 0.9rem;
+            font-weight: 600;
+            animation: pulse 2s infinite;
+        }
+
+        .autonomous-panel.active .autonomous-warning {
+            display: block;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .connection-status {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,0.9);
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ef4444;
+            transition: background 0.3s ease;
+        }
+
+        .status-dot.connected { background: #10b981; }
+        .status-dot.busy { background: #f59e0b; }
+        .status-dot.autonomous { 
+            background: #6366f1;
+            animation: autonomousPulse 2s infinite;
+        }
+
+        @keyframes autonomousPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.7); }
+            50% { box-shadow: 0 0 0 10px rgba(99,102,241,0); }
+        }
+
+        .left-controls, .center-display, .right-controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .joystick-container {
+            position: relative;
+            width: 160px;
+            height: 160px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .joystick-base {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: radial-gradient(circle at 40% 30%, #6366f1 0%, #4f46e5 100%);
+            box-shadow: inset 0 4px 8px rgba(0,0,0,0.1), 0 0 0 4px rgba(99,102,241,0.3);
+            transition: filter 0.3s ease;
+        }
+
+        .joystick-container.disabled .joystick-base {
+            filter: grayscale(100%);
+        }
+
+        .joystick-knob {
+            position: absolute;
+            left: 50%; top: 50%;
+            width: 50px;
+            height: 50px;
+            margin-left: -25px;
+            margin-top: -25px;
+            border-radius: 50%;
+            background: linear-gradient(145deg, #f8fafc 0%, #e2e8f0 100%);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2), inset 0 1px 3px rgba(255,255,255,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 2px solid #fff;
+            font-size: 1.2rem;
+        }
+
+        .joystick-knob.active {
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+        }
+
+        .joystick-label {
+            text-align: center;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #475569;
+            margin-top: 10px;
+            transition: color 0.3s ease;
+        }
+
+        .joystick-container.disabled .joystick-label {
+            color: #94a3b8;
+        }
+
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .action-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: white;
+            transition: all 0.2s ease;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+        }
+
+        .action-btn:active:not(:disabled) { transform: scale(0.95); }
+        .action-btn:disabled { 
+            opacity: 0.5; 
+            cursor: not-allowed;
+            filter: grayscale(50%);
+        }
+        
+        .action-btn.bark { background: linear-gradient(145deg, #ef4444, #dc2626); }
+        .action-btn.sit { background: linear-gradient(145deg, #10b981, #059669); }
+        .action-btn.stand { background: linear-gradient(145deg, #f59e0b, #d97706); }
+        .action-btn.lie { background: linear-gradient(145deg, #8b5cf6, #7c3aed); }
+        .action-btn.wag { background: linear-gradient(145deg, #ec4899, #db2777); }
+        .action-btn.stretch { background: linear-gradient(145deg, #06b6d4, #0891b2); }
+
+        .status-panel {
+            grid-column: 1 / -1;
+            background: rgba(99,102,241,0.1);
+            border-radius: 15px;
+            padding: 15px 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+            border: 1px solid rgba(99,102,241,0.3);
+        }
+
+        .status-item {
+            text-align: center;
+        }
+
+        .status-label {
+            font-size: 0.7rem;
+            color: #64748b;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-value {
+            font-size: 1.1rem;
+            color: #1e40af;
+            font-weight: 700;
+            margin-top: 2px;
+        }
+
+        .video-stream {
+            width: 300px;
+            height: 200px;
+            border-radius: 15px;
+            background: #000;
+            border: 3px solid #6366f1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6366f1;
+            font-weight: 600;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .autonomous-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #6366f1;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            display: none;
+            animation: pulse 2s infinite;
+        }
+
+        .gamepad-controller.autonomous-active .autonomous-indicator {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .nav-header {
+                flex-direction: column;
+                gap: 10px;
+                padding: 10px;
+            }
+
+            .ip-config {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .gamepad-controller {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto auto auto auto;
+                height: auto;
+                width: 95vw;
+                padding: 20px;
+                margin-top: 120px;
+            }
+        }
+    </style>
 </head>
 <body>
-    <nav style="margin-bottom:20px;display:flex;gap:10px;">
-        <a href="/" style="padding:7px 18px;background:#e0e7ff;color:#3730a3;border-radius:6px;text-decoration:none;font-weight:600;">Basic</a>
-        <a href="/simple" style="padding:7px 18px;background:#e0e7ff;color:#3730a3;border-radius:6px;text-decoration:none;font-weight:600;">Simple</a>
-        <a href="/advanced" style="padding:7px 18px;background:#6366f1;color:white;border-radius:6px;text-decoration:none;font-weight:600;">Advanced</a>
-    </nav>
-    <div style="margin-bottom:15px;">
-        <label for="robot-address" style="font-weight:600;">Adresse du robot :</label>
-        <input type="text" id="robot-address" placeholder="ex: 192.168.1.100:5000" style="padding:5px 10px;min-width:220px;">
-    </div>
-    <div class="gamepad-controller">
-        <div class="autonomous-panel" style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-            <label style="display:flex;align-items:center;font-weight:600;font-size:1.1rem;gap:10px;">
-                <input type="checkbox" id="autonomous-switch" style="width:22px;height:22px;"> Mode autonome
-            </label>
-            <span id="autonomous-status" style="font-size:1rem;color:#6366f1;font-weight:600;">OFF</span>
+    <!-- Navigation Header -->
+    <div class="nav-header">
+        <div class="nav-buttons">
+            <a href="#" class="nav-btn" onclick="switchInterface('home')">🏠 Accueil</a>
+            <a href="#" class="nav-btn" onclick="switchInterface('simple')">🎮 Simple</a>
+            <a href="#" class="nav-btn" onclick="switchInterface('vocal')">🎤 Mode vocal</a>
+            <a href="#" class="nav-btn active" onclick="switchInterface('advanced')">⚡ Avancé</a>
         </div>
+        
+        <div class="ip-config">
+            <span class="ip-status">IP Robot:</span>
+            <input type="text" class="ip-input" id="robot-ip" value="localhost" placeholder="192.168.1.100">
+            <button class="connect-btn" onclick="connectRobot()">Connecter</button>
+        </div>
+    </div>
+
+    <div class="gamepad-controller" id="controller">
         <div class="connection-status">
             <div class="status-dot" id="connection-dot"></div>
-            <span id="connection-text">Déconnecté</span>
+            <span id="connection-text">Connexion...</span>
         </div>
 
-        <div class="header">
-            🐕 PIDOG ADVANCED CONTROLLER
+        <div class="header">🐕 PIDOG CONTROLLER</div>
+
+        <div class="autonomous-panel" id="autonomous-panel">
+            <label>
+                <input type="checkbox" id="autonomous-switch" style="width:20px;height:20px;accent-color:#6366f1;">
+                Mode Autonome
+            </label>
+            <span id="autonomous-status" style="padding:5px 15px;border-radius:15px;font-weight:600;">OFF</span>
+            <span class="autonomous-warning">⚠️ Contrôles manuels désactivés</span>
         </div>
 
-        <!-- Joystick Gauche - Mouvement -->
+        <!-- Joystick Gauche -->
         <div class="left-controls">
             <div class="joystick-container" id="movement-joystick">
                 <div class="joystick-base"></div>
@@ -42,27 +466,22 @@
             <div class="joystick-label">MOUVEMENT</div>
             
             <div class="action-buttons">
-                <button class="action-btn sit" onclick="sendAction('sit')" title="Asseoir">SIT</button>
-                <button class="action-btn stand" onclick="sendAction('stand_up')" title="Debout">STAND</button>
-                <button class="action-btn lie" onclick="sendAction('lie_down')" title="Coucher">LIE</button>
-                <button class="action-btn stretch" onclick="sendAction('stretch')" title="Étirer">STRETCH</button>
+                <button class="action-btn sit" data-action="sit">SIT</button>
+                <button class="action-btn stand" data-action="stand_up">STAND</button>
+                <button class="action-btn lie" data-action="lie_down">LIE</button>
+                <button class="action-btn stretch" data-action="stretch">STRETCH</button>
             </div>
         </div>
 
-        <!-- Centre - Caméra et Infos -->
+        <!-- Centre -->
         <div class="center-display">
-            <div class="video-stream" id="video-container">
-                <div class="video-placeholder" id="video-placeholder">
-                    📹 Chargement caméra...
-                </div>
+            <div class="video-stream">
+                📹 Caméra
+                <div class="autonomous-indicator">AUTO</div>
             </div>
-            
-            <button class="face-detection-toggle" id="face-toggle" onclick="toggleFaceDetection()">
-                👁️ Détection Visage: OFF
-            </button>
         </div>
 
-        <!-- Joystick Droit - Contrôle Tête -->
+        <!-- Joystick Droit -->
         <div class="right-controls">
             <div class="joystick-container" id="head-joystick">
                 <div class="joystick-base"></div>
@@ -71,22 +490,18 @@
             <div class="joystick-label">CONTRÔLE TÊTE</div>
             
             <div class="action-buttons">
-                <button class="action-btn bark" onclick="sendAction('bark')" title="Aboyer">BARK</button>
-                <button class="action-btn wag" onclick="sendAction('wag_tail')" title="Remuer Queue">WAG</button>
-                <button class="action-btn bark" onclick="sendAction('pant')" title="Haleter" style="background: linear-gradient(145deg, #f97316, #ea580c);">PANT</button>
-                <button class="action-btn wag" onclick="sendAction('scratch')" title="Gratter" style="background: linear-gradient(145deg, #84cc16, #65a30d);">SCRATCH</button>
+                <button class="action-btn bark" data-action="bark">BARK</button>
+                <button class="action-btn wag" data-action="wag_tail">WAG</button>
+                <button class="action-btn bark" data-action="shake_head" style="background: linear-gradient(145deg, #f97316, #ea580c);">SHAKE</button>
+                <button class="action-btn stretch" data-action="stretch" style="background: linear-gradient(145deg, #84cc16, #65a30d);">FLEX</button>
             </div>
         </div>
 
         <!-- Panneau de Statut -->
         <div class="status-panel">
             <div class="status-item">
-                <div class="status-label">Move X/Y</div>
-                <div class="status-value" id="move-coords">0.00 / 0.00</div>
-            </div>
-            <div class="status-item">
-                <div class="status-label">Head X/Y</div>
-                <div class="status-value" id="head-coords">0.00 / 0.00</div>
+                <div class="status-label">Position</div>
+                <div class="status-value" id="move-coords">0.0 / 0.0</div>
             </div>
             <div class="status-item">
                 <div class="status-label">Direction</div>
@@ -97,421 +512,448 @@
                 <div class="status-value" id="speed">0%</div>
             </div>
             <div class="status-item">
-                <div class="status-label">Distance</div>
-                <div class="status-value" id="distance">-- cm</div>
+                <div class="status-label">État Robot</div>
+                <div class="status-value" id="robot-state">IDLE</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">Mode</div>
+                <div class="status-value" id="mode-display">MANUEL</div>
             </div>
             <div class="status-item">
                 <div class="status-label">Statut</div>
-                <div class="status-value" id="status">En attente...</div>
+                <div class="status-value" id="status">Prêt</div>
             </div>
         </div>
     </div>
 
     <script>
-        // Configuration
-        const MIN_SPEED = 85;
-        const MAX_SPEED = 98;
-        const DEADZONE = 0.35;
-        const SEND_INTERVAL = 80;
-
-        // Variables globales
-        let movementDragging = false;
-        let headDragging = false;
-        let lastMovementSend = 0;
-        let lastHeadSend = 0;
-        let currentMoveKx = 0;
-        let currentMoveKy = 0;
-        let currentHeadQx = 0;
-        let currentHeadQy = 0;
-        let faceDetectionEnabled = false;
-        let connectionStatus = false;
-
-        // Éléments DOM
-        const movementJoystick = document.getElementById('movement-joystick');
-        const movementKnob = document.getElementById('movement-knob');
-        const headJoystick = document.getElementById('head-joystick');
-        const headKnob = document.getElementById('head-knob');
-        const connectionDot = document.getElementById('connection-dot');
-        const connectionText = document.getElementById('connection-text');
-        const videoContainer = document.getElementById('video-container');
-        const videoPlaceholder = document.getElementById('video-placeholder');
-
-        // Ajout du switch autonome
-        const autonomousSwitch = document.getElementById('autonomous-switch');
-        const autonomousStatus = document.getElementById('autonomous-status');
-
-        // Fonctions utilitaires
-        function calculateDirection(kx, ky) {
-            const kr = Math.sqrt(kx*kx + ky*ky);
-            if (kr < DEADZONE) {
-                return { direction: "stop", speed: 0, kr: kr };
+        // ===== CONFIGURATION IP =====
+        let ROBOT_BASE_URL = 'http://localhost:5000';
+        
+        function connectRobot() {
+            const ipInput = document.getElementById('robot-ip');
+            const ip = ipInput.value.trim();
+            
+            if (ip) {
+                // Ajouter le protocole si absent et le port par défaut
+                let baseUrl = ip;
+                if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+                    baseUrl = 'http://' + baseUrl;
+                }
+                if (!baseUrl.includes(':') || baseUrl.endsWith('/')) {
+                    baseUrl += ':5000';
+                }
+                
+                ROBOT_BASE_URL = baseUrl;
+                elements.status.textContent = `🔄 Connexion à ${baseUrl}...`;
+                
+                // Tester la connexion
+                updateStatus();
             }
-            
-            const ka = Math.atan2(ky, kx) * 180 / Math.PI;
-            let direction;
-            
-            if (ka > 45 && ka < 135) {
-                direction = "forward";
-            } else if (ka > 135 || ka < -135) {
-                direction = "turn_left";
-            } else if (ka > -45 && ka < 45) {
-                direction = "turn_right";
-            } else if (ka > -135 && ka < -45) {
-                direction = "backward";
-            } else {
-                direction = "stop";
-            }
-            
-            const speed = direction === "stop" ? 0 : 
-                         Math.round(MIN_SPEED + (MAX_SPEED - MIN_SPEED) * Math.min(kr, 1.0));
-            
-            return { direction, speed, kr };
         }
 
-        function updateConnectionStatus(connected) {
-            connectionStatus = connected;
-            if (connected) {
-                connectionDot.classList.add('connected');
-                connectionText.textContent = 'Connecté';
+        function switchInterface(type) {
+            // Dans un vrai projet, ceci redirigerait vers les autres pages
+            // Pour cette démo, on affiche juste un message
+            if (type === 'home') {
+                alert('Redirection vers l\'interface d\'accueil (boutons simples)');
+                // window.location.href = 'index.html';
+            } else if (type === 'simple') {
+                alert('Redirection vers l\'interface simple (joystick unique)');
+                // window.location.href = 'simple.html';
+            }
+            // 'advanced' = page actuelle
+        }
+
+        // ===== CONFIGURATION =====
+        const CONFIG = {
+            DEADZONE: 0.35,
+            MIN_SPEED: 85,
+            MAX_SPEED: 98,
+            SEND_INTERVAL: 150,
+            MOVEMENT_THRESHOLD: 0.08,
+            DEBOUNCE_TIME: 50,
+            MAX_RETRIES: 2,
+            RETRY_DELAY: 300,
+            STATUS_UPDATE_INTERVAL: 3000
+        };
+
+        // ===== ÉTAT GLOBAL =====
+        const state = {
+            // Joysticks
+            movement: { dragging: false, kx: 0, ky: 0, enabled: true },
+            head: { dragging: false, qx: 0, qy: 0, enabled: true },
+            
+            // Communication
+            connection: { status: false },
+            requestsInFlight: new Set(),
+            lastSendTime: 0,
+            
+            // Robot
+            robotState: 'idle',
+            autonomousMode: false,
+            isTransitioning: false,
+            
+            // Timers
+            sendTimer: null,
+            statusTimer: null
+        };
+
+        // ===== ÉLÉMENTS DOM =====
+        const elements = {
+            controller: document.getElementById('controller'),
+            movementJoystick: document.getElementById('movement-joystick'),
+            movementKnob: document.getElementById('movement-knob'),
+            headJoystick: document.getElementById('head-joystick'),
+            headKnob: document.getElementById('head-knob'),
+            connectionDot: document.getElementById('connection-dot'),
+            connectionText: document.getElementById('connection-text'),
+            autonomousSwitch: document.getElementById('autonomous-switch'),
+            autonomousStatus: document.getElementById('autonomous-status'),
+            autonomousPanel: document.getElementById('autonomous-panel'),
+            moveCoords: document.getElementById('move-coords'),
+            direction: document.getElementById('direction'),
+            speed: document.getElementById('speed'),
+            robotState: document.getElementById('robot-state'),
+            modeDisplay: document.getElementById('mode-display'),
+            status: document.getElementById('status'),
+            actionButtons: document.querySelectorAll('.action-btn')
+        };
+
+        // ===== GESTION DU MODE AUTONOME =====
+        function setAutonomousUI(enabled) {
+            if (enabled) {
+                elements.controller.classList.add('autonomous-active');
+                elements.autonomousPanel.classList.add('active');
+                elements.movementJoystick.classList.add('disabled');
+                elements.headJoystick.classList.add('disabled');
+                elements.autonomousStatus.textContent = 'ON';
+                elements.autonomousStatus.style.background = '#10b981';
+                elements.modeDisplay.textContent = 'AUTONOME';
+                elements.modeDisplay.style.color = '#6366f1';
+                
+                elements.actionButtons.forEach(btn => btn.disabled = true);
+                resetJoysticks();
+                
+                if (state.sendTimer) {
+                    clearInterval(state.sendTimer);
+                    state.sendTimer = null;
+                }
             } else {
-                connectionDot.classList.remove('connected');
-                connectionText.textContent = 'Déconnecté';
+                elements.controller.classList.remove('autonomous-active');
+                elements.autonomousPanel.classList.remove('active');
+                elements.movementJoystick.classList.remove('disabled');
+                elements.headJoystick.classList.remove('disabled');
+                elements.autonomousStatus.textContent = 'OFF';
+                elements.autonomousStatus.style.background = '#6366f1';
+                elements.modeDisplay.textContent = 'MANUEL';
+                elements.modeDisplay.style.color = '#1e40af';
+                
+                elements.actionButtons.forEach(btn => btn.disabled = false);
+                startMovementSending();
+            }
+            
+            elements.autonomousStatus.style.color = 'white';
+            state.movement.enabled = !enabled;
+            state.head.enabled = !enabled;
+        }
+
+        function resetJoysticks() {
+            state.movement.kx = 0;
+            state.movement.ky = 0;
+            state.head.qx = 0;
+            state.head.qy = 0;
+            
+            updateInterface();
+            
+            if (!state.autonomousMode) {
+                sendMovementCommand(true);
+            }
+        }
+
+        // ===== COMMUNICATION =====
+        async function sendRequest(url, data, retries = CONFIG.MAX_RETRIES) {
+            if (state.isTransitioning && url !== '/autonomous_mode') {
+                return { status: 'blocked' };
+            }
+            
+            const fullUrl = ROBOT_BASE_URL + url;
+            
+            if (state.requestsInFlight.has(url)) {
+                return { status: 'duplicate' };
+            }
+            
+            state.requestsInFlight.add(url);
+            
+            try {
+                const response = await fetch(fullUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                    signal: AbortSignal.timeout(1000)
+                });
+                
+                const result = await response.json();
+                updateConnectionStatus(true, result.status === 'busy');
+                return result;
+                
+            } catch (error) {
+                if (retries > 0) {
+                    await new Promise(resolve => setTimeout(resolve, CONFIG.RETRY_DELAY));
+                    return sendRequest(url, data, retries - 1);
+                }
+                
+                updateConnectionStatus(false);
+                return { status: 'error', message: 'Connexion échouée' };
+                
+            } finally {
+                state.requestsInFlight.delete(url);
+            }
+        }
+
+        async function sendMovementCommand(force = false) {
+            if (state.autonomousMode && !force) {
+                return;
+            }
+            
+            const { kx, ky } = state.movement;
+            
+            if (!force && Math.abs(kx) < CONFIG.MOVEMENT_THRESHOLD && Math.abs(ky) < CONFIG.MOVEMENT_THRESHOLD) {
+                return;
+            }
+            
+            state.lastSendTime = Date.now();
+            
+            const result = await sendRequest('/command', { kx, ky });
+            
+            if (result.status === 'success') {
+                elements.status.textContent = '✅ OK';
+            }
+        }
+
+        async function sendHeadCommand() {
+            if (state.autonomousMode) {
+                return;
+            }
+            
+            const { qx, qy } = state.head;
+            
+            if (Math.abs(qx) > 5 || Math.abs(qy) > 5) {
+                await sendRequest('/head_control', { qx, qy });
+            }
+        }
+
+        async function sendAction(action) {
+            if (state.autonomousMode) {
+                elements.status.textContent = '⚠️ Mode autonome actif';
+                return;
+            }
+            
+            const result = await sendRequest('/action', { action });
+            elements.status.textContent = 
+                result.status === 'success' ? `✅ ${action.toUpperCase()}` : 
+                `❌ ${result.message}`;
+        }
+
+        async function toggleAutonomousMode() {
+            state.isTransitioning = true;
+            const enabled = elements.autonomousSwitch.checked;
+            
+            const result = await sendRequest('/autonomous_mode', { enabled });
+            
+            if (result.status === 'success') {
+                state.autonomousMode = enabled;
+                setAutonomousUI(enabled);
+                elements.status.textContent = result.message;
+            } else {
+                elements.autonomousSwitch.checked = !enabled;
+                elements.status.textContent = `❌ ${result.message}`;
+            }
+            
+            state.isTransitioning = false;
+        }
+        
+        function updateConnectionStatus(connected, busy = false) {
+            state.connection.status = connected;
+            const dot = elements.connectionDot;
+            const text = elements.connectionText;
+            
+            dot.className = 'status-dot';
+            if (connected) {
+                if (state.autonomousMode) {
+                    dot.classList.add('autonomous');
+                    text.textContent = 'Autonome';
+                } else {
+                    dot.classList.add(busy ? 'busy' : 'connected');
+                    text.textContent = busy ? 'Occupé' : 'Connecté';
+                }
+            } else {
+                text.textContent = 'Déconnecté';
             }
         }
 
         function updateInterface() {
-            // Mise à jour coordonnées mouvement
-            document.getElementById('move-coords').textContent = 
-                `${currentMoveKx.toFixed(2)} / ${currentMoveKy.toFixed(2)}`;
+            const { kx, ky } = state.movement;
+            const kr = Math.sqrt(kx*kx + ky*ky);
             
-            // Mise à jour coordonnées tête
-            document.getElementById('head-coords').textContent = 
-                `${currentHeadQx.toFixed(2)} / ${currentHeadQy.toFixed(2)}`;
+            let direction = "STOP";
+            let speed = 0;
             
-            // Calcul direction et vitesse
-            const result = calculateDirection(currentMoveKx, currentMoveKy);
-            document.getElementById('direction').textContent = result.direction.toUpperCase();
-            document.getElementById('speed').textContent = `${result.speed}%`;
-        }
-
-        // Gestion des joysticks
-        function setKnobPosition(knob, joystick, x, y) {
-            const rect = joystick.getBoundingClientRect();
-            const centerX = rect.width / 2;
-            const centerY = rect.height / 2;
-            knob.style.left = `${x}px`;
-            knob.style.top = `${y}px`;
-        }
-
-        function handleMovementJoystick(clientX, clientY) {
-            const rect = movementJoystick.getBoundingClientRect();
-            const centerX = rect.width / 2;
-            const centerY = rect.height / 2;
-            let x = clientX - rect.left;
-            let y = clientY - rect.top;
-            let dx = x - centerX;
-            let dy = y - centerY;
-            let dist = Math.sqrt(dx*dx + dy*dy);
-            const maxDist = centerX - 25; // knob radius
-
-            if (dist > maxDist) {
-                dx = dx * maxDist / dist;
-                dy = dy * maxDist / dist;
-            }
-
-            setKnobPosition(movementKnob, movementJoystick, centerX + dx, centerY + dy);
-
-            // Conversion vers format serveur - CORRECTION Y inversé
-            currentMoveKx = dx / maxDist;
-            currentMoveKy = -dy / maxDist;  // ⚡ INVERSION : dy négatif devient positif vers le haut
-            
-            updateInterface();
-            sendMovementCommand();
-        }
-
-        function handleHeadJoystick(clientX, clientY) {
-            const rect = headJoystick.getBoundingClientRect();
-            const centerX = rect.width / 2;
-            const centerY = rect.height / 2;
-            let x = clientX - rect.left;
-            let y = clientY - rect.top;
-            let dx = x - centerX;
-            let dy = y - centerY;
-            let dist = Math.sqrt(dx*dx + dy*dy);
-            const maxDist = centerX - 25; // knob radius
-
-            if (dist > maxDist) {
-                dx = dx * maxDist / dist;
-                dy = dy * maxDist / dist;
-            }
-
-            setKnobPosition(headKnob, headJoystick, centerX + dx, centerY + dy);
-
-            // Conversion pour contrôle de tête (range -100 à 100) - CORRECTION Y inversé
-            currentHeadQx = (dx / maxDist) * 100;
-            currentHeadQy = -(dy / maxDist) * 100; // ⚡ Double inversion pour contrôle tête naturel
-            
-            updateInterface();
-            sendHeadCommand();
-        }
-
-        function resetMovementJoystick() {
-            const rect = movementJoystick.getBoundingClientRect();
-            setKnobPosition(movementKnob, movementJoystick, rect.width / 2, rect.height / 2);
-            currentMoveKx = 0;
-            currentMoveKy = 0;
-            updateInterface();
-            sendMovementCommand();
-        }
-
-        function resetHeadJoystick() {
-            const rect = headJoystick.getBoundingClientRect();
-            setKnobPosition(headKnob, headJoystick, rect.width / 2, rect.height / 2);
-            currentHeadQx = 0;
-            currentHeadQy = 0;
-            updateInterface();
-            sendHeadCommand();
-        }
-
-        // Communication avec le serveur
-        function sendMovementCommand() {
-            const now = Date.now();
-            if (now - lastMovementSend < SEND_INTERVAL) return;
-            lastMovementSend = now;
-            alert((getRobotBaseUrl() ? getRobotBaseUrl() : '') + '/command')
-            fetch((getRobotBaseUrl() ? getRobotBaseUrl() : '') + '/command', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    kx: currentMoveKx, 
-                    ky: currentMoveKy 
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                updateConnectionStatus(true);
-                document.getElementById('status').textContent = 
-                    data.status === 'success' ? '✅ OK' : `❌ ${data.message}`;
-            })
-            .catch(error => {
-                updateConnectionStatus(false);
-                document.getElementById('status').textContent = '🔴 Erreur réseau';
-            });
-        }
-
-        function sendHeadCommand() {
-            const now = Date.now();
-            if (now - lastHeadSend < SEND_INTERVAL) return;
-            lastHeadSend = now;
-
-            // Envoyer commande de contrôle de tête (implémentation selon votre serveur)
-            fetch((getRobotBaseUrl() ? getRobotBaseUrl() : '') + '/head_control', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    qx: currentHeadQx, 
-                    qy: currentHeadQy 
-                })
-            })
-            .catch(error => console.log('Head control not implemented yet'));
-        }
-
-        function sendAction(action) {
-            fetch((getRobotBaseUrl() ? getRobotBaseUrl() : '') + '/action', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: action })
-            })
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('status').textContent = 
-                    data.status === 'success' ? `✅ ${action}` : `❌ Erreur`;
-            })
-            .catch(error => {
-                document.getElementById('status').textContent = '🔴 Erreur action';
-            });
-        }
-
-        function toggleFaceDetection() {
-            faceDetectionEnabled = !faceDetectionEnabled;
-            const toggle = document.getElementById('face-toggle');
-            
-            if (faceDetectionEnabled) {
-                toggle.classList.add('active');
-                toggle.textContent = '👁️ Détection Visage: ON';
-            } else {
-                toggle.classList.remove('active');
-                toggle.textContent = '👁️ Détection Visage: OFF';
-            }
-
-            fetch((getRobotBaseUrl() ? getRobotBaseUrl() : '') + '/face_detection', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ enabled: faceDetectionEnabled })
-            })
-            .catch(error => console.log('Face detection control not implemented yet'));
-        }
-
-        // Event Listeners pour joystick de mouvement
-        movementKnob.addEventListener('mousedown', function(e) {
-            movementDragging = true;
-            movementKnob.classList.add('active');
-            e.preventDefault();
-        });
-
-        movementKnob.addEventListener('touchstart', function(e) {
-            movementDragging = true;
-            movementKnob.classList.add('active');
-            e.preventDefault();
-        });
-
-        // Event Listeners pour joystick de tête
-        headKnob.addEventListener('mousedown', function(e) {
-            headDragging = true;
-            headKnob.classList.add('active');
-            e.preventDefault();
-        });
-
-        headKnob.addEventListener('touchstart', function(e) {
-            headDragging = true;
-            headKnob.classList.add('active');
-            e.preventDefault();
-        });
-
-        // Event Listeners globaux
-        document.addEventListener('mousemove', function(e) {
-            if (movementDragging) {
-                handleMovementJoystick(e.clientX, e.clientY);
-            }
-            if (headDragging) {
-                handleHeadJoystick(e.clientX, e.clientY);
-            }
-        });
-
-        document.addEventListener('touchmove', function(e) {
-            if (e.touches.length === 1) {
-                if (movementDragging) {
-                    handleMovementJoystick(e.touches[0].clientX, e.touches[0].clientY);
-                }
-                if (headDragging) {
-                    handleHeadJoystick(e.touches[0].clientX, e.touches[0].clientY);
-                }
-                e.preventDefault();
-            }
-        });
-
-        document.addEventListener('mouseup', function(e) {
-            if (movementDragging) {
-                movementDragging = false;
-                movementKnob.classList.remove('active');
-                resetMovementJoystick();
-            }
-            if (headDragging) {
-                headDragging = false;
-                headKnob.classList.remove('active');
-                resetHeadJoystick();
-            }
-        });
-
-        document.addEventListener('touchend', function(e) {
-            if (movementDragging) {
-                movementDragging = false;
-                movementKnob.classList.remove('active');
-                resetMovementJoystick();
-            }
-            if (headDragging) {
-                headDragging = false;
-                headKnob.classList.remove('active');
-                resetHeadJoystick();
-            }
-        });
-
-        // Initialisation du streaming vidéo
-        function initVideoStream() {
-            // Récupération de l'IP pour le streaming
-            fetch((getRobotBaseUrl() ? getRobotBaseUrl() : '') + '/get_ip')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.ip) {
-                        const iframe = document.createElement('iframe');
-                        iframe.src = `http://${data.ip}:9000/mjpg`;
-                        iframe.style.width = '100%';
-                        iframe.style.height = '100%';
-                        iframe.style.border = 'none';
-                        videoContainer.removeChild(videoPlaceholder);
-                        videoContainer.appendChild(iframe);
-                    }
-                })
-                .catch(error => {
-                    videoPlaceholder.textContent = '❌ Caméra indisponible';
-                });
-        }
-
-        // Mise à jour périodique des données capteur
-        function updateSensorData() {
-            fetch((getRobotBaseUrl() ? getRobotBaseUrl() : '') + '/sensor_data')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.distance !== undefined) {
-                        document.getElementById('distance').textContent = `${data.distance} cm`;
-                    }
-                })
-                .catch(error => {
-                    document.getElementById('distance').textContent = '-- cm';
-                });
-        }
-
-        // Initialisation
-        window.addEventListener('load', function() {
-            resetMovementJoystick();
-            resetHeadJoystick();
-            updateInterface();
-            updateConnectionStatus(false);
-            
-            // Tentative d'initialisation du streaming
-            setTimeout(initVideoStream, 1000);
-            
-            // Mise à jour périodique des capteurs
-            setInterval(updateSensorData, 1000);
-            
-            // Test de connexion initial
-            fetch((getRobotBaseUrl() ? getRobotBaseUrl() : '') + '/status')
-                .then(response => response.json())
-                .then(data => updateConnectionStatus(true))
-                .catch(error => updateConnectionStatus(false));
-        });
-
-        // Ajout du switch autonome
-        autonomousSwitch.onchange = function() {
-            const enabled = autonomousSwitch.checked;
-            fetch((getRobotBaseUrl() ? getRobotBaseUrl() : '') + '/autonomous_mode', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ enabled })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    autonomousStatus.textContent = enabled ? 'ON' : 'OFF';
-                    autonomousStatus.style.color = enabled ? '#10b981' : '#6366f1';
+            if (kr >= CONFIG.DEADZONE) {
+                if (Math.abs(ky) > Math.abs(kx)) {
+                    direction = ky > 0 ? "FORWARD" : "BACKWARD";
                 } else {
-                    document.getElementById('status').textContent = `❌ Erreur: ${data.message}`;
-                    autonomousSwitch.checked = !enabled;
+                    direction = kx > 0 ? "TURN_RIGHT" : "TURN_LEFT";
                 }
-            })
-            .catch(() => {
-                document.getElementById('status').textContent = '🔴 Erreur de communication';
-                autonomousSwitch.checked = !enabled;
-            });
-        };
-
-        function getRobotBaseUrl() {
-            const addr = document.getElementById('robot-address').value.trim();
-            if (addr) {
-                return (addr.startsWith('http') ? addr : 'http://' + addr);
+                speed = Math.round(CONFIG.MIN_SPEED + (CONFIG.MAX_SPEED - CONFIG.MIN_SPEED) * Math.min(kr, 1.0));
             }
-            return '';
+            
+            elements.moveCoords.textContent = `${kx.toFixed(1)} / ${ky.toFixed(1)}`;
+            elements.direction.textContent = direction;
+            elements.speed.textContent = `${speed}%`;
         }
+
+        // ===== GESTION DES JOYSTICKS =====
+        function setupJoystick(container, knob, callback) {
+            const rect = container.getBoundingClientRect();
+            const center = { x: rect.width / 2, y: rect.height / 2 };
+            const maxRadius = center.x - 25;
+            
+            let dragging = false;
+            
+            function setKnobPosition(x, y) {
+                knob.style.left = `${x}px`;
+                knob.style.top = `${y}px`;
+            }
+            
+            function handleMove(clientX, clientY) {
+                if (!dragging || state.autonomousMode) return;
+                
+                const containerRect = container.getBoundingClientRect();
+                let x = clientX - containerRect.left;
+                let y = clientY - containerRect.top;
+                
+                let dx = x - center.x;
+                let dy = y - center.y;
+                let distance = Math.sqrt(dx*dx + dy*dy);
+                
+                if (distance > maxRadius) {
+                    dx = dx * maxRadius / distance;
+                    dy = dy * maxRadius / distance;
+                }
+                
+                setKnobPosition(center.x + dx, center.y + dy);
+                
+                const normalizedKx = dx / maxRadius;
+                const normalizedKy = -dy / maxRadius;
+                
+                callback(normalizedKx, normalizedKy);
+            }
+            
+            function handleEnd() {
+                if (!dragging) return;
+                dragging = false;
+                knob.classList.remove('active');
+                setKnobPosition(center.x, center.y);
+                callback(0, 0);
+            }
+            
+            knob.addEventListener('mousedown', (e) => {
+                if (!state.autonomousMode) {
+                    dragging = true;
+                    knob.classList.add('active');
+                    e.preventDefault();
+                }
+            });
+            
+            knob.addEventListener('touchstart', (e) => {
+                if (!state.autonomousMode) {
+                    dragging = true;
+                    knob.classList.add('active');
+                    e.preventDefault();
+                }
+            });
+            
+            document.addEventListener('mousemove', (e) => handleMove(e.clientX, e.clientY));
+            document.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 1) {
+                    handleMove(e.touches[0].clientX, e.touches[0].clientY);
+                }
+            });
+            
+            document.addEventListener('mouseup', handleEnd);
+            document.addEventListener('touchend', handleEnd);
+            
+            setKnobPosition(center.x, center.y);
+        }
+
+        // ===== MISE À JOUR PÉRIODIQUE =====
+        async function updateStatus() {
+            if (state.isTransitioning) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(ROBOT_BASE_URL + '/status');
+                const data = await response.json();
+                
+                if (data.status === 'connected') {
+                    updateConnectionStatus(true, data.robot_state === 'busy');
+                    elements.robotState.textContent = data.robot_state.toUpperCase();
+                    
+                    if (!state.isTransitioning && data.autonomous_mode !== undefined && data.autonomous_mode !== state.autonomousMode) {
+                        state.autonomousMode = data.autonomous_mode;
+                        elements.autonomousSwitch.checked = data.autonomous_mode;
+                        setAutonomousUI(data.autonomous_mode);
+                    }
+                }
+            } catch (error) {
+                updateConnectionStatus(false);
+            }
+        }
+
+        function startMovementSending() {
+            if (!state.sendTimer) {
+                state.sendTimer = setInterval(() => {
+                    if (!state.autonomousMode && (state.movement.kx !== 0 || state.movement.ky !== 0)) {
+                        sendMovementCommand();
+                    }
+                }, CONFIG.SEND_INTERVAL);
+            }
+        }
+
+        // ===== INITIALISATION =====
+        function init() {
+            setupJoystick(elements.movementJoystick, elements.movementKnob, (kx, ky) => {
+                if (state.autonomousMode) return;
+                state.movement.kx = kx;
+                state.movement.ky = ky;
+                updateInterface();
+            });
+            
+            setupJoystick(elements.headJoystick, elements.headKnob, (qx, qy) => {
+                if (state.autonomousMode) return;
+                state.head.qx = qx * 100;
+                state.head.qy = qy * 100;
+                sendHeadCommand();
+            });
+            
+            elements.actionButtons.forEach(btn => {
+                btn.addEventListener('click', () => sendAction(btn.dataset.action));
+            });
+            
+            elements.autonomousSwitch.addEventListener('change', toggleAutonomousMode);
+            
+            startMovementSending();
+            state.statusTimer = setInterval(updateStatus, CONFIG.STATUS_UPDATE_INTERVAL);
+            
+            updateInterface();
+            updateStatus();
+            
+            console.log('🐕 PiDog Controller Advanced - Initialisé');
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
 </html>
