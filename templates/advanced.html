@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PiDog Controller - Optimisé</title>
+    <title>PiDog Controller - Mode Autonome Corrigé</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         * {
@@ -37,6 +37,23 @@
             height: 75vh;
             position: relative;
             border: 2px solid rgba(255,255,255,0.5);
+            transition: opacity 0.3s ease;
+        }
+
+        /* Mode autonome activé - désactive visuellement les contrôles */
+        .gamepad-controller.autonomous-active .left-controls,
+        .gamepad-controller.autonomous-active .right-controls {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        .gamepad-controller.autonomous-active::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(99,102,241,0.05);
+            border-radius: 35px;
+            pointer-events: none;
         }
 
         .header {
@@ -58,6 +75,13 @@
             border-radius: 20px;
             padding: 15px;
             border: 1px solid rgba(99,102,241,0.3);
+            transition: all 0.3s ease;
+        }
+
+        .autonomous-panel.active {
+            background: rgba(99,102,241,0.3);
+            border-color: #6366f1;
+            box-shadow: 0 0 20px rgba(99,102,241,0.4);
         }
 
         .autonomous-panel label {
@@ -67,6 +91,24 @@
             font-size: 1.1rem;
             gap: 10px;
             color: #1e40af;
+            cursor: pointer;
+        }
+
+        .autonomous-warning {
+            display: none;
+            color: #dc2626;
+            font-size: 0.9rem;
+            font-weight: 600;
+            animation: pulse 2s infinite;
+        }
+
+        .autonomous-panel.active .autonomous-warning {
+            display: block;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
         }
 
         .connection-status {
@@ -88,10 +130,20 @@
             height: 8px;
             border-radius: 50%;
             background: #ef4444;
+            transition: background 0.3s ease;
         }
 
         .status-dot.connected { background: #10b981; }
         .status-dot.busy { background: #f59e0b; }
+        .status-dot.autonomous { 
+            background: #6366f1;
+            animation: autonomousPulse 2s infinite;
+        }
+
+        @keyframes autonomousPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.7); }
+            50% { box-shadow: 0 0 0 10px rgba(99,102,241,0); }
+        }
 
         .left-controls, .center-display, .right-controls {
             display: flex;
@@ -116,6 +168,11 @@
             border-radius: 50%;
             background: radial-gradient(circle at 40% 30%, #6366f1 0%, #4f46e5 100%);
             box-shadow: inset 0 4px 8px rgba(0,0,0,0.1), 0 0 0 4px rgba(99,102,241,0.3);
+            transition: filter 0.3s ease;
+        }
+
+        .joystick-container.disabled .joystick-base {
+            filter: grayscale(100%);
         }
 
         .joystick-knob {
@@ -148,6 +205,11 @@
             font-weight: 600;
             color: #475569;
             margin-top: 10px;
+            transition: color 0.3s ease;
+        }
+
+        .joystick-container.disabled .joystick-label {
+            color: #94a3b8;
         }
 
         .action-buttons {
@@ -170,7 +232,13 @@
             box-shadow: 0 3px 10px rgba(0,0,0,0.2);
         }
 
-        .action-btn:active { transform: scale(0.95); }
+        .action-btn:active:not(:disabled) { transform: scale(0.95); }
+        .action-btn:disabled { 
+            opacity: 0.5; 
+            cursor: not-allowed;
+            filter: grayscale(50%);
+        }
+        
         .action-btn.bark { background: linear-gradient(145deg, #ef4444, #dc2626); }
         .action-btn.sit { background: linear-gradient(145deg, #10b981, #059669); }
         .action-btn.stand { background: linear-gradient(145deg, #f59e0b, #d97706); }
@@ -219,6 +287,26 @@
             justify-content: center;
             color: #6366f1;
             font-weight: 600;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .autonomous-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #6366f1;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            display: none;
+            animation: pulse 2s infinite;
+        }
+
+        .gamepad-controller.autonomous-active .autonomous-indicator {
+            display: block;
         }
 
         @media (max-width: 768px) {
@@ -233,20 +321,21 @@
     </style>
 </head>
 <body>
-    <div class="gamepad-controller">
+    <div class="gamepad-controller" id="controller">
         <div class="connection-status">
             <div class="status-dot" id="connection-dot"></div>
             <span id="connection-text">Connexion...</span>
         </div>
 
-        <div class="header">🐕 PIDOG CONTROLLER - OPTIMISÉ</div>
+        <div class="header">🐕 PIDOG CONTROLLER</div>
 
-        <div class="autonomous-panel">
+        <div class="autonomous-panel" id="autonomous-panel">
             <label>
                 <input type="checkbox" id="autonomous-switch" style="width:20px;height:20px;accent-color:#6366f1;">
                 Mode Autonome
             </label>
             <span id="autonomous-status" style="padding:5px 15px;border-radius:15px;font-weight:600;">OFF</span>
+            <span class="autonomous-warning">⚠️ Contrôles manuels désactivés</span>
         </div>
 
         <!-- Joystick Gauche -->
@@ -267,7 +356,10 @@
 
         <!-- Centre -->
         <div class="center-display">
-            <div class="video-stream">📹 Caméra</div>
+            <div class="video-stream">
+                📹 Caméra
+                <div class="autonomous-indicator">AUTO</div>
+            </div>
         </div>
 
         <!-- Joystick Droit -->
@@ -305,8 +397,8 @@
                 <div class="status-value" id="robot-state">IDLE</div>
             </div>
             <div class="status-item">
-                <div class="status-label">Queue</div>
-                <div class="status-value" id="queue-size">0</div>
+                <div class="status-label">Mode</div>
+                <div class="status-value" id="mode-display">MANUEL</div>
             </div>
             <div class="status-item">
                 <div class="status-label">Statut</div>
@@ -316,44 +408,43 @@
     </div>
 
     <script>
-        // ===== CONFIGURATION OPTIMISÉE =====
+        // ===== CONFIGURATION =====
         const CONFIG = {
             DEADZONE: 0.35,
             MIN_SPEED: 85,
             MAX_SPEED: 98,
-            SEND_INTERVAL: 100,        // Envoi continu plus fréquent
-            MOVEMENT_THRESHOLD: 0.06,   // Seuil plus sensible pour mouvement continu
-            DEBOUNCE_TIME: 30,         // Debouncing réduit pour plus de réactivité
-            MAX_RETRIES: 2,            
+            SEND_INTERVAL: 150,
+            MOVEMENT_THRESHOLD: 0.08,
+            DEBOUNCE_TIME: 50,
+            MAX_RETRIES: 2,
             RETRY_DELAY: 300,
-            CONTINUOUS_SEND_INTERVAL: 250  // Envoi de maintien toutes les 250ms
+            STATUS_UPDATE_INTERVAL: 3000 // Augmenté pour réduire les conflits
         };
 
-        // ===== ÉTAT GLOBAL OPTIMISÉ =====
+        // ===== ÉTAT GLOBAL =====
         const state = {
             // Joysticks
-            movement: { 
-                dragging: false, 
-                kx: 0, 
-                ky: 0, 
-                lastSent: { kx: 0, ky: 0 },
-                lastDirection: "STOP",
-                continuousInterval: null  // Pour maintenir le mouvement
-            },
-            head: { dragging: false, qx: 0, qy: 0, lastSent: { qx: 0, qy: 0 } },
+            movement: { dragging: false, kx: 0, ky: 0, enabled: true },
+            head: { dragging: false, qx: 0, qy: 0, enabled: true },
             
             // Communication
-            connection: { status: false, lastCheck: 0 },
+            connection: { status: false },
             requestsInFlight: new Set(),
             lastSendTime: 0,
             
             // Robot
             robotState: 'idle',
-            autonomousMode: false
+            autonomousMode: false,
+            isTransitioning: false, // Empêche les conflits pendant les transitions
+            
+            // Timers
+            sendTimer: null,
+            statusTimer: null
         };
 
         // ===== ÉLÉMENTS DOM =====
         const elements = {
+            controller: document.getElementById('controller'),
             movementJoystick: document.getElementById('movement-joystick'),
             movementKnob: document.getElementById('movement-knob'),
             headJoystick: document.getElementById('head-joystick'),
@@ -362,111 +453,87 @@
             connectionText: document.getElementById('connection-text'),
             autonomousSwitch: document.getElementById('autonomous-switch'),
             autonomousStatus: document.getElementById('autonomous-status'),
+            autonomousPanel: document.getElementById('autonomous-panel'),
             moveCoords: document.getElementById('move-coords'),
             direction: document.getElementById('direction'),
             speed: document.getElementById('speed'),
             robotState: document.getElementById('robot-state'),
-            queueSize: document.getElementById('queue-size'),
-            status: document.getElementById('status')
+            modeDisplay: document.getElementById('mode-display'),
+            status: document.getElementById('status'),
+            actionButtons: document.querySelectorAll('.action-btn')
         };
 
-        // ===== UTILITAIRES OPTIMISÉS =====
-        function shouldSendMovement(kx, ky) {
-            const now = Date.now();
-            const lastSent = state.movement.lastSent;
-            const currentDirection = calculateDirection(kx, ky).direction;
-            
-            // Toujours envoyer si changement de direction (priorité absolue)
-            if (currentDirection !== state.movement.lastDirection) {
-                return true;
-            }
-            
-            // Pour mouvement continu dans la même direction, debouncing réduit
-            if (now - state.lastSendTime < CONFIG.DEBOUNCE_TIME) {
-                return false;
-            }
-            
-            // Si dans deadzone, arrêter le mouvement
-            if (currentDirection === "STOP") {
-                return Math.sqrt(lastSent.kx*lastSent.kx + lastSent.ky*lastSent.ky) > CONFIG.DEADZONE;
-            }
-            
-            // Pour ajustements fins dans la même direction
-            const deltaKx = Math.abs(kx - lastSent.kx);
-            const deltaKy = Math.abs(ky - lastSent.ky);
-            
-            return deltaKx > CONFIG.MOVEMENT_THRESHOLD || deltaKy > CONFIG.MOVEMENT_THRESHOLD;
-        }
-
-        function startContinuousMovement() {
-            // Arrêter l'ancien interval s'il existe
-            if (state.movement.continuousInterval) {
-                clearInterval(state.movement.continuousInterval);
-            }
-            
-            // Démarrer l'envoi continu pour maintenir le mouvement
-            state.movement.continuousInterval = setInterval(() => {
-                if (state.movement.dragging && 
-                    calculateDirection(state.movement.kx, state.movement.ky).direction !== "STOP") {
-                    sendMovementCommand();
+        // ===== GESTION DU MODE AUTONOME =====
+        function setAutonomousUI(enabled) {
+            if (enabled) {
+                elements.controller.classList.add('autonomous-active');
+                elements.autonomousPanel.classList.add('active');
+                elements.movementJoystick.classList.add('disabled');
+                elements.headJoystick.classList.add('disabled');
+                elements.autonomousStatus.textContent = 'ON';
+                elements.autonomousStatus.style.background = '#10b981';
+                elements.modeDisplay.textContent = 'AUTONOME';
+                elements.modeDisplay.style.color = '#6366f1';
+                
+                // Désactiver les boutons d'action
+                elements.actionButtons.forEach(btn => btn.disabled = true);
+                
+                // Réinitialiser les joysticks
+                resetJoysticks();
+                
+                // Arrêter l'envoi de commandes manuelles
+                if (state.sendTimer) {
+                    clearInterval(state.sendTimer);
+                    state.sendTimer = null;
                 }
-            }, CONFIG.CONTINUOUS_SEND_INTERVAL);
-        }
-        
-        function stopContinuousMovement() {
-            if (state.movement.continuousInterval) {
-                clearInterval(state.movement.continuousInterval);
-                state.movement.continuousInterval = null;
-            }
-        }
-
-        function calculateDirection(kx, ky) {
-            const kr = Math.sqrt(kx*kx + ky*ky);
-            
-            if (kr < CONFIG.DEADZONE) {
-                return { direction: "STOP", speed: 0, kr };
-            }
-            
-            let direction;
-            if (Math.abs(ky) > Math.abs(kx)) {
-                direction = ky > 0 ? "FORWARD" : "BACKWARD";
             } else {
-                direction = kx > 0 ? "TURN_RIGHT" : "TURN_LEFT";
+                elements.controller.classList.remove('autonomous-active');
+                elements.autonomousPanel.classList.remove('active');
+                elements.movementJoystick.classList.remove('disabled');
+                elements.headJoystick.classList.remove('disabled');
+                elements.autonomousStatus.textContent = 'OFF';
+                elements.autonomousStatus.style.background = '#6366f1';
+                elements.modeDisplay.textContent = 'MANUEL';
+                elements.modeDisplay.style.color = '#1e40af';
+                
+                // Réactiver les boutons d'action
+                elements.actionButtons.forEach(btn => btn.disabled = false);
+                
+                // Redémarrer l'envoi de commandes
+                startMovementSending();
             }
             
-            const speed = Math.round(CONFIG.MIN_SPEED + (CONFIG.MAX_SPEED - CONFIG.MIN_SPEED) * Math.min(kr, 1.0));
-            return { direction, speed, kr };
+            elements.autonomousStatus.style.color = 'white';
+            state.movement.enabled = !enabled;
+            state.head.enabled = !enabled;
         }
 
-        function updateConnectionStatus(connected, busy = false) {
-            state.connection.status = connected;
-            const dot = elements.connectionDot;
-            const text = elements.connectionText;
+        function resetJoysticks() {
+            // Réinitialiser les positions
+            state.movement.kx = 0;
+            state.movement.ky = 0;
+            state.head.qx = 0;
+            state.head.qy = 0;
             
-            dot.className = 'status-dot';
-            if (connected) {
-                dot.classList.add(busy ? 'busy' : 'connected');
-                text.textContent = busy ? 'Occupé' : 'Connecté';
-            } else {
-                text.textContent = 'Déconnecté';
+            // Réinitialiser l'interface
+            updateInterface();
+            
+            // Envoyer une commande d'arrêt
+            if (!state.autonomousMode) {
+                sendMovementCommand(true); // Force l'envoi
             }
         }
 
-        function updateInterface() {
-            const { kx, ky } = state.movement;
-            const result = calculateDirection(kx, ky);
-            
-            elements.moveCoords.textContent = `${kx.toFixed(1)} / ${ky.toFixed(1)}`;
-            elements.direction.textContent = result.direction;
-            elements.speed.textContent = `${result.speed}%`;
-        }
-
-        // ===== COMMUNICATION OPTIMISÉE =====
+        // ===== COMMUNICATION =====
         async function sendRequest(url, data, retries = CONFIG.MAX_RETRIES) {
+            // Bloquer les requêtes pendant les transitions
+            if (state.isTransitioning && url !== '/autonomous_mode') {
+                return { status: 'blocked' };
+            }
+            
             const requestId = `${url}-${Date.now()}`;
             
-            // Éviter les doublons sauf pour le mouvement continu
-            if (url !== '/command' && state.requestsInFlight.has(url)) {
+            if (state.requestsInFlight.has(url)) {
                 return { status: 'duplicate' };
             }
             
@@ -477,7 +544,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data),
-                    signal: AbortSignal.timeout(1000) // Timeout 1s
+                    signal: AbortSignal.timeout(1000)
                 });
                 
                 const result = await response.json();
@@ -498,47 +565,118 @@
             }
         }
 
-        async function sendMovementCommand() {
+        async function sendMovementCommand(force = false) {
+            // Ne pas envoyer si en mode autonome
+            if (state.autonomousMode && !force) {
+                return;
+            }
+            
             const { kx, ky } = state.movement;
             
-            if (!shouldSendMovement(kx, ky)) {
+            // Vérifier si le mouvement est significatif
+            if (!force && Math.abs(kx) < CONFIG.MOVEMENT_THRESHOLD && Math.abs(ky) < CONFIG.MOVEMENT_THRESHOLD) {
                 return;
             }
             
             state.lastSendTime = Date.now();
-            state.movement.lastSent = { kx, ky };
-            
-            const direction = calculateDirection(kx, ky).direction;
-            state.movement.lastDirection = direction;
             
             const result = await sendRequest('/command', { kx, ky });
             
-            if (result.status === 'error') {
-                elements.status.textContent = `❌ ${result.message}`;
-            } else if (result.status === 'busy') {
-                elements.status.textContent = '⏳ Robot occupé';
-            } else if (result.status === 'success') {
-                elements.status.textContent = direction === 'STOP' ? 
-                    '⏹️ Arrêt' : `🎮 ${direction} (continu)`;
-            } else {
-                elements.status.textContent = '✅ Commande envoyée';
+            if (result.status === 'success') {
+                elements.status.textContent = '✅ OK';
             }
         }
 
         async function sendHeadCommand() {
+            // Ne pas envoyer si en mode autonome
+            if (state.autonomousMode) {
+                return;
+            }
+            
             const { qx, qy } = state.head;
             
-            // Envoi simplifié pour le contrôle de tête (moins critique)
             if (Math.abs(qx) > 5 || Math.abs(qy) > 5) {
                 await sendRequest('/head_control', { qx, qy });
             }
         }
 
+        async function sendAction(action) {
+            // Bloquer si en mode autonome
+            if (state.autonomousMode) {
+                elements.status.textContent = '⚠️ Mode autonome actif';
+                return;
+            }
+            
+            const result = await sendRequest('/action', { action });
+            elements.status.textContent = 
+                result.status === 'success' ? `✅ ${action.toUpperCase()}` : 
+                `❌ ${result.message}`;
+        }
+
+        async function toggleAutonomousMode() {
+            state.isTransitioning = true;
+            const enabled = elements.autonomousSwitch.checked;
+            
+            const result = await sendRequest('/autonomous_mode', { enabled });
+            
+            if (result.status === 'success') {
+                state.autonomousMode = enabled;
+                setAutonomousUI(enabled);
+                elements.status.textContent = result.message;
+            } else {
+                // Rétablir l'état précédent
+                elements.autonomousSwitch.checked = !enabled;
+                elements.status.textContent = `❌ ${result.message}`;
+            }
+            
+            state.isTransitioning = false;
+        }
+        
+        function updateConnectionStatus(connected, busy = false) {
+            state.connection.status = connected;
+            const dot = elements.connectionDot;
+            const text = elements.connectionText;
+            
+            dot.className = 'status-dot';
+            if (connected) {
+                if (state.autonomousMode) {
+                    dot.classList.add('autonomous');
+                    text.textContent = 'Autonome';
+                } else {
+                    dot.classList.add(busy ? 'busy' : 'connected');
+                    text.textContent = busy ? 'Occupé' : 'Connecté';
+                }
+            } else {
+                text.textContent = 'Déconnecté';
+            }
+        }
+
+        function updateInterface() {
+            const { kx, ky } = state.movement;
+            const kr = Math.sqrt(kx*kx + ky*ky);
+            
+            let direction = "STOP";
+            let speed = 0;
+            
+            if (kr >= CONFIG.DEADZONE) {
+                if (Math.abs(ky) > Math.abs(kx)) {
+                    direction = ky > 0 ? "FORWARD" : "BACKWARD";
+                } else {
+                    direction = kx > 0 ? "TURN_RIGHT" : "TURN_LEFT";
+                }
+                speed = Math.round(CONFIG.MIN_SPEED + (CONFIG.MAX_SPEED - CONFIG.MIN_SPEED) * Math.min(kr, 1.0));
+            }
+            
+            elements.moveCoords.textContent = `${kx.toFixed(1)} / ${ky.toFixed(1)}`;
+            elements.direction.textContent = direction;
+            elements.speed.textContent = `${speed}%`;
+        }
+
         // ===== GESTION DES JOYSTICKS =====
-        function setupJoystick(container, knob, callback, isMovementJoystick = false) {
+        function setupJoystick(container, knob, callback) {
             const rect = container.getBoundingClientRect();
             const center = { x: rect.width / 2, y: rect.height / 2 };
-            const maxRadius = center.x - 25; // knob radius
+            const maxRadius = center.x - 25;
             
             let dragging = false;
             
@@ -548,7 +686,7 @@
             }
             
             function handleMove(clientX, clientY) {
-                if (!dragging) return;
+                if (!dragging || state.autonomousMode) return;
                 
                 const containerRect = container.getBoundingClientRect();
                 let x = clientX - containerRect.left;
@@ -566,40 +704,34 @@
                 setKnobPosition(center.x + dx, center.y + dy);
                 
                 const normalizedKx = dx / maxRadius;
-                const normalizedKy = -dy / maxRadius; // Y inversé
+                const normalizedKy = -dy / maxRadius;
                 
                 callback(normalizedKx, normalizedKy);
-            }
-            
-            function handleStart(e) {
-                dragging = true;
-                knob.classList.add('active');
-                
-                if (isMovementJoystick) {
-                    state.movement.dragging = true;
-                    startContinuousMovement();
-                }
-                
-                e.preventDefault();
             }
             
             function handleEnd() {
                 if (!dragging) return;
                 dragging = false;
                 knob.classList.remove('active');
-                
-                if (isMovementJoystick) {
-                    state.movement.dragging = false;
-                    stopContinuousMovement();
-                }
-                
                 setKnobPosition(center.x, center.y);
                 callback(0, 0);
             }
             
-            // Event listeners optimisés
-            knob.addEventListener('mousedown', handleStart);
-            knob.addEventListener('touchstart', handleStart);
+            knob.addEventListener('mousedown', (e) => {
+                if (!state.autonomousMode) {
+                    dragging = true;
+                    knob.classList.add('active');
+                    e.preventDefault();
+                }
+            });
+            
+            knob.addEventListener('touchstart', (e) => {
+                if (!state.autonomousMode) {
+                    dragging = true;
+                    knob.classList.add('active');
+                    e.preventDefault();
+                }
+            });
             
             document.addEventListener('mousemove', (e) => handleMove(e.clientX, e.clientY));
             document.addEventListener('touchmove', (e) => {
@@ -611,37 +743,16 @@
             document.addEventListener('mouseup', handleEnd);
             document.addEventListener('touchend', handleEnd);
             
-            // Position initiale
             setKnobPosition(center.x, center.y);
-        }
-
-        // ===== ACTIONS =====
-        async function sendAction(action) {
-            const result = await sendRequest('/action', { action });
-            elements.status.textContent = 
-                result.status === 'success' ? `✅ ${action.toUpperCase()}` : 
-                result.status === 'busy' ? '⏳ Robot occupé' :
-                `❌ ${result.message}`;
-        }
-
-        async function toggleAutonomousMode() {
-            const enabled = elements.autonomousSwitch.checked;
-            const result = await sendRequest('/autonomous_mode', { enabled });
-            
-            if (result.status === 'success') {
-                state.autonomousMode = enabled;
-                elements.autonomousStatus.textContent = enabled ? 'ON' : 'OFF';
-                elements.autonomousStatus.style.background = enabled ? '#10b981' : '#6366f1';
-                elements.autonomousStatus.style.color = 'white';
-                elements.status.textContent = result.message;
-            } else {
-                elements.autonomousSwitch.checked = !enabled;
-                elements.status.textContent = `❌ ${result.message}`;
-            }
         }
 
         // ===== MISE À JOUR PÉRIODIQUE =====
         async function updateStatus() {
+            // Ne pas mettre à jour pendant une transition
+            if (state.isTransitioning) {
+                return;
+            }
+            
             try {
                 const response = await fetch('/status');
                 const data = await response.json();
@@ -649,13 +760,12 @@
                 if (data.status === 'connected') {
                     updateConnectionStatus(true, data.robot_state === 'busy');
                     elements.robotState.textContent = data.robot_state.toUpperCase();
-                    elements.queueSize.textContent = data.queue_size || '0';
                     
-                    // Synchroniser l'état autonome
-                    if (data.autonomous_mode !== state.autonomousMode) {
+                    // Synchroniser uniquement si pas en transition
+                    if (!state.isTransitioning && data.autonomous_mode !== undefined && data.autonomous_mode !== state.autonomousMode) {
                         state.autonomousMode = data.autonomous_mode;
                         elements.autonomousSwitch.checked = data.autonomous_mode;
-                        elements.autonomousStatus.textContent = data.autonomous_mode ? 'ON' : 'OFF';
+                        setAutonomousUI(data.autonomous_mode);
                     }
                 }
             } catch (error) {
@@ -663,57 +773,54 @@
             }
         }
 
+        function startMovementSending() {
+            if (!state.sendTimer) {
+                state.sendTimer = setInterval(() => {
+                    if (!state.autonomousMode && (state.movement.kx !== 0 || state.movement.ky !== 0)) {
+                        sendMovementCommand();
+                    }
+                }, CONFIG.SEND_INTERVAL);
+            }
+        }
+
         // ===== INITIALISATION =====
         function init() {
-            // Setup joystick de mouvement avec gestion continue
+            // Setup joysticks
             setupJoystick(elements.movementJoystick, elements.movementKnob, (kx, ky) => {
+                if (state.autonomousMode) return;
                 state.movement.kx = kx;
                 state.movement.ky = ky;
                 updateInterface();
-                sendMovementCommand();
-            }, true); // isMovementJoystick = true
+            });
             
-            // Setup joystick de tête (pas de mouvement continu)
             setupJoystick(elements.headJoystick, elements.headKnob, (qx, qy) => {
-                state.head.qx = qx * 100; // Conversion pour serveur
+                if (state.autonomousMode) return;
+                state.head.qx = qx * 100;
                 state.head.qy = qy * 100;
                 sendHeadCommand();
-            }, false); // isMovementJoystick = false
+            });
             
             // Setup action buttons
-            document.querySelectorAll('.action-btn[data-action]').forEach(btn => {
+            elements.actionButtons.forEach(btn => {
                 btn.addEventListener('click', () => sendAction(btn.dataset.action));
             });
             
             // Setup autonomous switch
             elements.autonomousSwitch.addEventListener('change', toggleAutonomousMode);
             
-            // Mise à jour périodique optimisée
-            setInterval(updateStatus, 2000); // Moins fréquent
+            // Démarrer les mises à jour
+            startMovementSending();
+            state.statusTimer = setInterval(updateStatus, CONFIG.STATUS_UPDATE_INTERVAL);
             
             // Initialisation
             updateInterface();
             updateStatus();
             
-            console.log('🐕 PiDog Controller Optimisé - Mouvement Continu Activé');
+            console.log('🐕 PiDog Controller - Initialisé');
         }
 
         // Démarrage
         document.addEventListener('DOMContentLoaded', init);
-        
-        // Nettoyage au déchargement de la page
-        window.addEventListener('beforeunload', () => {
-            stopContinuousMovement();
-            // Envoyer un arrêt final
-            if (state.connection.status) {
-                fetch('/command', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ kx: 0, ky: 0 }),
-                    keepalive: true
-                }).catch(() => {});
-            }
-        });
     </script>
 </body>
 </html>
