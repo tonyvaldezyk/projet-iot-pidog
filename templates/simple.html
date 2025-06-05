@@ -5,21 +5,412 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Contrôleur PiDog - Simple</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        body {
+            background: linear-gradient(135deg, #e0e7ff 0%, #f8fafc 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Montserrat', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+
+        /* Navigation Header */
+        .nav-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(15px);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+            z-index: 1000;
+            border-bottom: 1px solid rgba(255,255,255,0.3);
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .nav-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 20px;
+            color: white;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .nav-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(99,102,241,0.4);
+        }
+
+        .nav-btn.active {
+            background: linear-gradient(145deg, #6366f1, #4f46e5);
+        }
+
+        .nav-btn:not(.active) {
+            background: linear-gradient(145deg, #e0e7ff, #c7d2fe);
+            color: #3730a3;
+        }
+
+        .ip-config {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255,255,255,0.1);
+            padding: 8px 15px;
+            border-radius: 25px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .ip-input {
+            background: rgba(255,255,255,0.9);
+            border: 1px solid rgba(99,102,241,0.3);
+            border-radius: 15px;
+            padding: 6px 12px;
+            font-size: 0.9rem;
+            width: 160px;
+            color: #1e40af;
+            font-weight: 600;
+        }
+
+        .connect-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 15px;
+            background: linear-gradient(145deg, #10b981, #059669);
+            color: white;
+            font-weight: 600;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .connect-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .ip-status {
+            font-size: 0.8rem;
+            color: #2c3e50;
+            font-weight: 600;
+        }
+
+        .controller {
+            background: rgba(255,255,255,0.8);
+            border-radius: 25px;
+            box-shadow: 0 10px 40px 0 rgba(31, 38, 135, 0.2);
+            backdrop-filter: blur(10px);
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 1px solid rgba(255,255,255,0.4);
+            margin-top: 80px;
+            transition: opacity 0.3s ease;
+        }
+
+        .controller.autonomous-active {
+            opacity: 0.7;
+        }
+
+        .controller h1 {
+            margin-bottom: 30px;
+            color: #2c3e50;
+            letter-spacing: 2px;
+            font-size: 1.8rem;
+            text-shadow: 0 2px 8px rgba(255,255,255,0.5);
+        }
+
+        .joystick-container {
+            position: relative;
+            width: 280px;
+            height: 280px;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .joystick-container.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .joystick-base {
+            position: absolute;
+            left: 0; top: 0;
+            width: 100%; height: 100%;
+            border-radius: 50%;
+            background: radial-gradient(circle at 60% 40%, #a5b4fc 0%, #dbeafe 100%);
+            box-shadow: 0 0 0 6px #6366f1aa, 0 0 25px 0 #6366f155;
+            z-index: 1;
+        }
+
+        .joystick-base::before, .joystick-base::after {
+            content: '';
+            position: absolute;
+            left: 50%; top: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        .joystick-base::before {
+            width: 220px; height: 220px;
+            border: 2px solid #6366f133;
+        }
+
+        .joystick-base::after {
+            width: 160px; height: 160px;
+            border: 2px solid #6366f122;
+        }
+
+        .joystick-knob {
+            position: absolute;
+            left: 50%; top: 50%;
+            width: 70px; height: 70px;
+            margin-left: -35px; margin-top: -35px;
+            border-radius: 50%;
+            background: linear-gradient(145deg, #6366f1 60%, #818cf8 100%);
+            box-shadow: 0 4px 20px 0 #6366f188, 0 1px 6px rgba(255,255,255,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 1.8rem;
+            user-select: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            z-index: 3;
+            border: 2px solid #fff;
+        }
+
+        .joystick-knob.active {
+            background: linear-gradient(145deg, #818cf8 60%, #6366f1 100%);
+            box-shadow: 0 6px 25px 0 #6366f1cc, 0 2px 10px rgba(255,255,255,0.6);
+            transform: scale(1.05);
+        }
+
+        .status-panel {
+            background: rgba(255,255,255,0.6);
+            border-radius: 15px;
+            padding: 20px 25px;
+            box-shadow: 0 3px 12px rgba(99, 102, 241, 0.1);
+            text-align: center;
+            min-width: 300px;
+        }
+
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+            color: #2c3e50;
+        }
+
+        .status-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .status-label {
+            font-weight: 600;
+        }
+
+        .status-value {
+            font-weight: 700;
+            color: #6366f1;
+        }
+
+        .status-message {
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(99, 102, 241, 0.1);
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: #4f46e5;
+            border-left: 3px solid #6366f1;
+        }
+
+        .direction-indicator {
+            position: absolute;
+            top: -40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(99, 102, 241, 0.9);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .direction-indicator.show {
+            opacity: 1;
+        }
+
+        .button-panel {
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .autonomous-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(99,102,241,0.1);
+            padding: 10px 15px;
+            border-radius: 20px;
+            border: 1px solid rgba(99,102,241,0.3);
+            transition: all 0.3s ease;
+        }
+
+        .autonomous-control.active {
+            background: rgba(99,102,241,0.3);
+            border-color: #6366f1;
+            box-shadow: 0 0 15px rgba(99,102,241,0.3);
+        }
+
+        .autonomous-control label {
+            display: flex;
+            align-items: center;
+            font-weight: 600;
+            font-size: 1.1rem;
+            gap: 10px;
+            color: #2c3e50;
+            cursor: pointer;
+        }
+
+        .autonomous-status {
+            margin-left: 15px;
+            font-size: 1rem;
+            color: #6366f1;
+            font-weight: 600;
+            padding: 5px 10px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.8);
+        }
+
+        .autonomous-warning {
+            display: none;
+            color: #dc2626;
+            font-size: 0.9rem;
+            font-weight: 600;
+            animation: pulse 2s infinite;
+        }
+
+        .autonomous-control.active .autonomous-warning {
+            display: block;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .connection-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .connection-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ef4444;
+            transition: background 0.3s ease;
+        }
+
+        .connection-dot.connected { 
+            background: #10b981;
+            animation: connectedPulse 2s infinite;
+        }
+
+        @keyframes connectedPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.4); }
+            50% { box-shadow: 0 0 0 6px rgba(16,185,129,0); }
+        }
+
+        @media (max-width: 768px) {
+            .nav-header {
+                flex-direction: column;
+                gap: 10px;
+                padding: 10px;
+            }
+
+            .ip-config {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .controller {
+                margin-top: 120px;
+                width: 95vw;
+                padding: 20px;
+            }
+
+            .joystick-container {
+                width: 250px;
+                height: 250px;
+            }
+
+            .button-panel {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
 </head>
 <body>
-    <nav style="margin-bottom:20px;display:flex;gap:10px;">
-        <a href="/" style="padding:7px 18px;background:#e0e7ff;color:#3730a3;border-radius:6px;text-decoration:none;font-weight:600;">Basic</a>
-        <a href="/simple" style="padding:7px 18px;background:#6366f1;color:white;border-radius:6px;text-decoration:none;font-weight:600;">Simple</a>
-        <a href="/advanced" style="padding:7px 18px;background:#e0e7ff;color:#3730a3;border-radius:6px;text-decoration:none;font-weight:600;">Advanced</a>
-    </nav>
-    <div class="controller">
-        <h1>🐕 PiDog Controller</h1>
-        
-        <div style="margin-bottom:15px;">
-            <label for="robot-address" style="font-weight:600;">Adresse du robot :</label>
-            <input type="text" id="robot-address" placeholder="ex: 192.168.1.100:5000" style="padding:5px 10px;min-width:220px;">
+    <!-- Navigation Header -->
+    <div class="nav-header">
+        <div class="nav-buttons">
+            <a href="/" class="nav-btn">🏠 Basic</a>
+            <a href="/simple" class="nav-btn active">🎮 Simple</a>
+            <a href="/advanced" class="nav-btn">⚡ Advanced</a>
+            <a href="/vocal" class="nav-btn">🎤 Vocal</a>
         </div>
+        
+        <div class="ip-config">
+            <span class="ip-status">IP Robot:</span>
+            <input type="text" class="ip-input" id="robot-ip" value="localhost:5000" placeholder="192.168.1.100:5000">
+            <button class="connect-btn" onclick="connectRobot()">Connecter</button>
+        </div>
+    </div>
+
+    <div class="controller" id="controller">
+        <div class="connection-indicator">
+            <div class="connection-dot" id="connection-dot"></div>
+            <span id="connection-status">Déconnecté</span>
+        </div>
+
+        <h1>🐕 PiDog Controller</h1>
         
         <div class="joystick-container" id="joystick">
             <div class="joystick-base"></div>
@@ -28,10 +419,14 @@
         </div>
         
         <div class="button-panel">
-            <label style="display:flex;align-items:center;font-weight:600;font-size:1.1rem;gap:10px;">
-                <input type="checkbox" id="autonomous-switch" style="width:22px;height:22px;"> Mode autonome
-            </label>
-            <span id="autonomous-status" style="margin-left:15px;font-size:1rem;color:#6366f1;font-weight:600;">OFF</span>
+            <div class="autonomous-control" id="autonomous-panel">
+                <label>
+                    <input type="checkbox" id="autonomous-switch" style="width:22px;height:22px;accent-color:#6366f1;">
+                    Mode autonome
+                </label>
+                <span class="autonomous-status" id="autonomous-status">OFF</span>
+                <span class="autonomous-warning">⚠️ Contrôles désactivés</span>
+            </div>
         </div>
         
         <div class="status-panel">
@@ -51,11 +446,79 @@
                 <span class="status-label">Vitesse:</span>
                 <span class="status-value" id="speed">0%</span>
             </div>
+            <div class="status-row">
+                <span class="status-label">Mode:</span>
+                <span class="status-value" id="mode-display">MANUEL</span>
+            </div>
             <div class="status-message" id="status">🔄 En attente de commande...</div>
         </div>
     </div>
 
     <script>
+        // ===== CONFIGURATION IP =====
+        let ROBOT_BASE_URL = '';
+        
+        function connectRobot() {
+            const ipInput = document.getElementById('robot-ip');
+            const ip = ipInput.value.trim();
+            
+            if (ip) {
+                let baseUrl = ip;
+                
+                // Ajouter http:// si nécessaire
+                if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+                    baseUrl = 'http://' + baseUrl;
+                }
+                
+                // Ajouter le port par défaut si absent
+                const url = new URL(baseUrl);
+                if (!url.port && !ip.includes(':')) {
+                    url.port = '5000';
+                    baseUrl = url.toString().replace(/\/$/, '');
+                }
+                
+                ROBOT_BASE_URL = baseUrl;
+                statusDiv.textContent = `🔄 Connexion à ${baseUrl}...`;
+                
+                // Tester la connexion
+                testConnection();
+            } else {
+                ROBOT_BASE_URL = '';
+                updateConnectionStatus(false);
+            }
+        }
+
+        function testConnection() {
+            if (!ROBOT_BASE_URL) return;
+            
+            fetch(ROBOT_BASE_URL + '/status')
+                .then(response => response.json())
+                .then(data => {
+                    updateConnectionStatus(true);
+                    statusDiv.textContent = '✅ Connexion établie';
+                })
+                .catch(error => {
+                    updateConnectionStatus(false);
+                    statusDiv.textContent = '🔴 Impossible de se connecter';
+                });
+        }
+
+        function updateConnectionStatus(connected) {
+            const dot = document.getElementById('connection-dot');
+            const status = document.getElementById('connection-status');
+            
+            if (connected) {
+                dot.classList.add('connected');
+                status.textContent = 'Connecté';
+                status.style.color = '#10b981';
+            } else {
+                dot.classList.remove('connected');
+                status.textContent = 'Déconnecté';
+                status.style.color = '#ef4444';
+            }
+        }
+
+        // ===== ÉLÉMENTS DOM =====
         const joystick = document.getElementById('joystick');
         const knob = document.getElementById('knob');
         const directionIndicator = document.getElementById('direction');
@@ -64,7 +527,13 @@
         const directionSpan = document.getElementById('direction-text');
         const speedSpan = document.getElementById('speed');
         const statusDiv = document.getElementById('status');
+        const controller = document.getElementById('controller');
+        const autonomousSwitch = document.getElementById('autonomous-switch');
+        const autonomousStatus = document.getElementById('autonomous-status');
+        const autonomousPanel = document.getElementById('autonomous-panel');
+        const modeDisplay = document.getElementById('mode-display');
         
+        // ===== CONFIGURATION =====
         const size = 280;
         const radius = size / 2;
         const knobRadius = 35;
@@ -74,12 +543,41 @@
         let lastKx = 0;
         let lastKy = 0;
         let commandTimeout = null;
+        let autonomousMode = false;
 
-        // Configuration identique au serveur Flask
         const MIN_SPEED = 85;
         const MAX_SPEED = 98;
         const DEADZONE = 0.35;
 
+        // ===== GESTION DU MODE AUTONOME =====
+        function setAutonomousUI(enabled) {
+            autonomousMode = enabled;
+            
+            if (enabled) {
+                controller.classList.add('autonomous-active');
+                autonomousPanel.classList.add('active');
+                joystick.classList.add('disabled');
+                autonomousStatus.textContent = 'ON';
+                autonomousStatus.style.background = '#10b981';
+                autonomousStatus.style.color = 'white';
+                modeDisplay.textContent = 'AUTONOME';
+                modeDisplay.style.color = '#6366f1';
+                
+                // Réinitialiser le joystick
+                resetKnob();
+            } else {
+                controller.classList.remove('autonomous-active');
+                autonomousPanel.classList.remove('active');
+                joystick.classList.remove('disabled');
+                autonomousStatus.textContent = 'OFF';
+                autonomousStatus.style.background = 'rgba(255,255,255,0.8)';
+                autonomousStatus.style.color = '#6366f1';
+                modeDisplay.textContent = 'MANUEL';
+                modeDisplay.style.color = '#1e40af';
+            }
+        }
+
+        // ===== LOGIQUE DU JOYSTICK =====
         function calculateDirection(kx, ky) {
             const kr = Math.sqrt(kx*kx + ky*ky);
             if (kr < DEADZONE) {
@@ -107,15 +605,12 @@
             return { direction, speed, kr };
         }
 
-        function getRobotBaseUrl() {
-            const addr = document.getElementById('robot-address').value.trim();
-            if (addr) {
-                return (addr.startsWith('http') ? addr : 'http://' + addr);
-            }
-            return '';
-        }
-
         function sendCommand(kx, ky) {
+            // Ne pas envoyer si en mode autonome
+            if (autonomousMode && !(kx === 0 && ky === 0)) {
+                return;
+            }
+            
             const now = Date.now();
             
             if (now - lastSendTime < SEND_INTERVAL) {
@@ -134,7 +629,9 @@
             
             statusDiv.textContent = `📡 Envoi: ${result.direction} (${result.speed}%)`;
             
-            fetch((getRobotBaseUrl() ? getRobotBaseUrl() : '') + '/command', {
+            const url = ROBOT_BASE_URL ? ROBOT_BASE_URL + '/command' : '/command';
+            
+            fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ kx: kx, ky: ky })
@@ -143,6 +640,7 @@
             .then(data => {
                 if (data.status === 'success') {
                     statusDiv.textContent = `✅ ${data.message}`;
+                    updateConnectionStatus(true);
                 } else if (data.status === 'busy') {
                     statusDiv.textContent = '⏳ Robot occupé, réessai...';
                     setTimeout(() => sendCommand(kx, ky), 200);
@@ -152,6 +650,7 @@
             })
             .catch((error) => {
                 statusDiv.textContent = '🔴 Erreur de communication';
+                updateConnectionStatus(false);
                 console.error('Erreur:', error);
             });
         }
@@ -190,6 +689,8 @@
         }
 
         function handleMove(clientX, clientY) {
+            if (autonomousMode) return;
+            
             const rect = joystick.getBoundingClientRect();
             let x = clientX - rect.left;
             let y = clientY - rect.top;
@@ -205,9 +706,8 @@
             
             setKnob(radius + dx, radius + dy);
             
-            // Conversion vers format serveur (kx, ky normalisés) - CORRECTION Y inversé
             const kx = dx / maxDist;
-            const ky = -dy / maxDist;  // ⚡ INVERSION : dy négatif devient positif vers le haut
+            const ky = -dy / maxDist; // Inversion Y
             
             updateInterface(kx, ky);
             
@@ -219,11 +719,13 @@
             }, SEND_INTERVAL);
         }
 
-        // Event listeners
+        // ===== EVENT LISTENERS =====
         knob.addEventListener('mousedown', function(e) {
-            dragging = true;
-            knob.classList.add('active');
-            e.preventDefault();
+            if (!autonomousMode) {
+                dragging = true;
+                knob.classList.add('active');
+                e.preventDefault();
+            }
         });
 
         document.addEventListener('mousemove', function(e) {
@@ -242,9 +744,11 @@
 
         // Touch events
         knob.addEventListener('touchstart', function(e) {
-            dragging = true;
-            knob.classList.add('active');
-            e.preventDefault();
+            if (!autonomousMode) {
+                dragging = true;
+                knob.classList.add('active');
+                e.preventDefault();
+            }
         });
 
         document.addEventListener('touchmove', function(e) {
@@ -262,15 +766,13 @@
             }
         });
 
-        // Initial position
-        resetKnob();
-
-        // Ajout du switch autonome
-        const autonomousSwitch = document.getElementById('autonomous-switch');
-        const autonomousStatus = document.getElementById('autonomous-status');
+        // Mode autonome
         autonomousSwitch.onchange = function() {
             const enabled = autonomousSwitch.checked;
-            fetch('/autonomous_mode', {
+            
+            const url = ROBOT_BASE_URL ? ROBOT_BASE_URL + '/autonomous_mode' : '/autonomous_mode';
+            
+            fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ enabled })
@@ -278,8 +780,9 @@
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
-                    autonomousStatus.textContent = enabled ? 'ON' : 'OFF';
-                    autonomousStatus.style.color = enabled ? '#10b981' : '#6366f1';
+                    setAutonomousUI(enabled);
+                    statusDiv.textContent = data.message;
+                    updateConnectionStatus(true);
                 } else {
                     statusDiv.textContent = `❌ Erreur: ${data.message}`;
                     autonomousSwitch.checked = !enabled;
@@ -288,8 +791,20 @@
             .catch(() => {
                 statusDiv.textContent = '🔴 Erreur de communication';
                 autonomousSwitch.checked = !enabled;
+                updateConnectionStatus(false);
             });
         };
+
+        // ===== INITIALISATION =====
+        resetKnob();
+        updateConnectionStatus(false);
+        
+        // Test de connexion initial si une adresse est définie
+        if (document.getElementById('robot-ip').value.trim()) {
+            connectRobot();
+        }
+        
+        console.log('🐕 PiDog Controller Simple Flask - Initialisé');
     </script>
 </body>
 </html>

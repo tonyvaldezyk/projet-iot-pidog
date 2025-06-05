@@ -31,6 +31,7 @@ autonomous_mode_enabled = False
 _autonomous_thread = None
 autonomous_lock = threading.Lock()
 
+
 def cleanup_gpio():
     global my_dog
     try:
@@ -231,22 +232,6 @@ def autonomous_behavior():
 app = Flask(__name__)
 last_command = None
 
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-@app.route('/simple')
-def simple():
-    return render_template('simple.html')
-
-@app.route('/advanced')
-def advanced():
-    return render_template('advanced.html')
-
-@app.route('/vocal')
-def vocal():
-    return render_template('vocal.html')
-
 @app.after_request
 def add_header(r):
     """
@@ -262,6 +247,22 @@ def add_header(r):
     r.headers['Access-Control-Allow-Headers'] = "Content-Type, Authorization"
     r.headers['Access-Control-Allow-Methods'] = "*"
     return r
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/simple')
+def simple():
+    return render_template('simple.html')
+
+@app.route('/advanced')
+def advanced():
+    return render_template('advanced.html')
+
+@app.route('/vocal')
+def vocal():
+    return render_template('vocal.html')
 
 @app.route('/command', methods=['POST'])
 def handle_command():
