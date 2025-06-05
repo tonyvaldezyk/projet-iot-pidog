@@ -243,6 +243,10 @@ def simple():
 def advanced():
     return render_template('advanced.html')
 
+@app.route('/vocal')
+def vocal():
+    return render_template('vocal.html')
+
 @app.route('/command', methods=['POST'])
 def handle_command():
     """

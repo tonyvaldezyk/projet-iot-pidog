@@ -1,0 +1,9 @@
+flask
+numpy
+smbus
+spidev
+gpiozero
+openai
+sox
+readchar
+Pidog
