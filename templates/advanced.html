@@ -278,7 +278,7 @@
             const now = Date.now();
             if (now - lastMovementSend < SEND_INTERVAL) return;
             lastMovementSend = now;
-
+            alert((getRobotBaseUrl() ? getRobotBaseUrl() : '') + '/command')
             fetch((getRobotBaseUrl() ? getRobotBaseUrl() : '') + '/command', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
