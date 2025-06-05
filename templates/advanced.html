@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contrôleur PACO X1 - Avancé</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+    <title>PiDog Advanced Control - Détection d'Obstacles</title>
     <style>
         * {
             margin: 0;
@@ -13,778 +12,783 @@
         }
 
         body {
-            background: linear-gradient(135deg, #1e1b4b 0%, #3730a3 50%, #1e40af 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
             min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: 'Montserrat', Arial, sans-serif;
-            overflow: hidden;
+            padding: 20px;
         }
 
-        .gamepad-controller {
-            background: rgba(255,255,255,0.95);
-            border-radius: 35px;
-            box-shadow: 0 15px 50px rgba(0,0,0,0.3);
-            backdrop-filter: blur(15px);
-            padding: 30px;
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
             display: grid;
-            grid-template-columns: 200px 1fr 200px;
-            grid-template-rows: auto 1fr auto;
+            grid-template-columns: 1fr 1fr;
             gap: 20px;
-            width: 90vw;
-            max-width: 1000px;
-            height: 70vh;
-            position: relative;
-            border: 2px solid rgba(255,255,255,0.5);
         }
 
-        .header {
-            grid-column: 1 / -1;
+        .panel {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        h1 {
             text-align: center;
-            color: #1e40af;
-            font-size: 1.5rem;
-            font-weight: 700;
-            letter-spacing: 1px;
-            text-shadow: 0 2px 4px rgba(30,64,175,0.3);
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            grid-column: 1 / -1;
         }
 
-        .left-controls {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .center-display {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .right-controls {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 15px;
+        h2 {
+            margin-bottom: 15px;
+            color: #ffd700;
+            border-bottom: 2px solid #ffd700;
+            padding-bottom: 5px;
         }
 
         .joystick-container {
-            position: relative;
-            width: 160px;
-            height: 160px;
             display: flex;
-            align-items: center;
-            justify-content: center;
+            justify-content: space-around;
+            margin: 20px 0;
         }
 
-        .joystick-base {
-            position: absolute;
-            width: 100%;
-            height: 100%;
+        .joystick {
+            width: 150px;
+            height: 150px;
+            border: 3px solid rgba(255,255,255,0.3);
             border-radius: 50%;
-            background: radial-gradient(circle at 40% 30%, #6366f1 0%, #4f46e5 100%);
-            box-shadow: inset 0 4px 8px rgba(0,0,0,0.1), 0 0 0 4px rgba(99,102,241,0.3);
-            z-index: 1;
-        }
-
-        .joystick-base::before {
-            content: '';
-            position: absolute;
-            left: 50%; top: 50%;
-            transform: translate(-50%, -50%);
-            width: 80%;
-            height: 80%;
-            border-radius: 50%;
-            border: 2px solid rgba(255,255,255,0.3);
+            position: relative;
+            background: rgba(0,0,0,0.2);
+            cursor: pointer;
+            margin: 10px;
         }
 
         .joystick-knob {
-            position: absolute;
-            left: 50%; top: 50%;
-            width: 50px;
-            height: 50px;
-            margin-left: -25px;
-            margin-top: -25px;
+            width: 40px;
+            height: 40px;
+            background: #ffd700;
             border-radius: 50%;
-            background: linear-gradient(145deg, #f8fafc 0%, #e2e8f0 100%);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2), inset 0 1px 3px rgba(255,255,255,0.8);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            z-index: 3;
-            border: 2px solid #fff;
-            font-size: 1.2rem;
-        }
-
-        .joystick-knob.active {
-            transform: scale(1.1);
-            box-shadow: 0 6px 16px rgba(0,0,0,0.3), inset 0 1px 3px rgba(255,255,255,0.9);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 0.1s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         }
 
         .joystick-label {
             text-align: center;
-            font-size: 0.8rem;
-            font-weight: 600;
-            color: #475569;
             margin-top: 10px;
+            font-weight: bold;
         }
 
-        .video-stream {
-            width: 320px;
-            height: 240px;
-            border-radius: 15px;
-            background: #000;
-            border: 3px solid #6366f1;
-            box-shadow: 0 4px 20px rgba(99,102,241,0.4);
-            overflow: hidden;
-            position: relative;
+        .control-group {
+            margin: 15px 0;
         }
 
-        .video-stream iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
-
-        .video-placeholder {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #6366f1;
-            font-size: 1.2rem;
-            font-weight: 600;
-        }
-
-        .action-buttons {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            width: 100%;
-        }
-
-        .action-btn {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            border: none;
-            cursor: pointer;
-            font-size: 0.7rem;
-            font-weight: 600;
+        .btn {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
             color: white;
-            transition: all 0.2s ease;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
-            position: relative;
-            overflow: hidden;
+            border: none;
+            padding: 12px 20px;
+            margin: 5px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
 
-        .action-btn:active {
-            transform: scale(0.95);
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.3);
         }
 
-        .action-btn.bark { background: linear-gradient(145deg, #ef4444, #dc2626); }
-        .action-btn.sit { background: linear-gradient(145deg, #10b981, #059669); }
-        .action-btn.stand { background: linear-gradient(145deg, #f59e0b, #d97706); }
-        .action-btn.lie { background: linear-gradient(145deg, #8b5cf6, #7c3aed); }
-        .action-btn.wag { background: linear-gradient(145deg, #ec4899, #db2777); }
-        .action-btn.stretch { background: linear-gradient(145deg, #06b6d4, #0891b2); }
+        .btn:active {
+            transform: translateY(0);
+        }
 
-        .status-panel {
-            grid-column: 1 / -1;
-            background: rgba(99,102,241,0.1);
-            border-radius: 15px;
-            padding: 15px 20px;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            border: 1px solid rgba(99,102,241,0.3);
+        .btn-danger {
+            background: linear-gradient(45deg, #f44336, #d32f2f);
+        }
+
+        .btn-warning {
+            background: linear-gradient(45deg, #ff9800, #f57c00);
+        }
+
+        .btn-info {
+            background: linear-gradient(45deg, #2196F3, #1976D2);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(45deg, #9E9E9E, #757575);
+        }
+
+        .status-display {
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
         }
 
         .status-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            padding: 5px;
+            border-radius: 5px;
+            background: rgba(255,255,255,0.1);
+        }
+
+        .obstacle-warning {
+            background: linear-gradient(45deg, #ff5722, #d84315);
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-weight: bold;
+            text-align: center;
+            display: none;
+        }
+
+        .distance-input {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .distance-input input {
+            padding: 8px;
+            border: none;
+            border-radius: 5px;
+            width: 80px;
+            text-align: center;
+            font-size: 16px;
+        }
+
+        .distance-input label {
+            font-weight: bold;
+        }
+
+        .sensor-panel {
+            grid-column: 1 / -1;
+        }
+
+        .sensor-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .sensor-card {
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            padding: 15px;
             text-align: center;
         }
 
-        .status-label {
-            font-size: 0.7rem;
-            color: #64748b;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+        .sensor-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #ffd700;
+            margin: 10px 0;
         }
 
-        .status-value {
-            font-size: 1.1rem;
-            color: #1e40af;
-            font-weight: 700;
-            margin-top: 2px;
+        .scan-visualization {
+            background: rgba(0,0,0,0.4);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 15px 0;
+            text-align: center;
         }
 
-        .connection-status {
-            position: absolute;
-            top: 15px;
-            right: 15px;
+        .scan-angles {
             display: flex;
-            align-items: center;
-            gap: 8px;
-            background: rgba(255,255,255,0.9);
-            padding: 5px 10px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
+            justify-content: space-around;
+            margin: 15px 0;
         }
 
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #ef4444;
-            animation: pulse 2s infinite;
+        .angle-reading {
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 10px;
+            min-width: 60px;
+            text-align: center;
         }
 
-        .status-dot.connected {
-            background: #10b981;
+        .angle-reading.safe {
+            background: rgba(76, 175, 80, 0.3);
         }
 
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+        .angle-reading.warning {
+            background: rgba(255, 152, 0, 0.3);
         }
 
-        .face-detection-toggle {
-            margin-top: auto;
-            padding: 10px 15px;
-            background: linear-gradient(145deg, #6366f1, #4f46e5);
-            color: white;
-            border: none;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .face-detection-toggle:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(99,102,241,0.4);
-        }
-
-        .face-detection-toggle.active {
-            background: linear-gradient(145deg, #10b981, #059669);
+        .angle-reading.danger {
+            background: rgba(244, 67, 54, 0.3);
         }
 
         @media (max-width: 768px) {
-            .gamepad-controller {
+            .container {
                 grid-template-columns: 1fr;
-                grid-template-rows: auto auto auto auto;
-                height: auto;
-                width: 95vw;
-                padding: 20px;
             }
-            
-            .center-display {
-                order: -1;
-            }
-            
-            .video-stream {
-                width: 280px;
-                height: 210px;
+
+            .joystick-container {
+                flex-direction: column;
+                align-items: center;
             }
         }
     </style>
 </head>
 <body>
-    <div class="gamepad-controller">
-        <div class="autonomous-panel" style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-            <label style="display:flex;align-items:center;font-weight:600;font-size:1.1rem;gap:10px;">
-                <input type="checkbox" id="autonomous-switch" style="width:22px;height:22px;"> Mode autonome
-            </label>
-            <span id="autonomous-status" style="font-size:1rem;color:#6366f1;font-weight:600;">OFF</span>
-        </div>
-        <div class="connection-status">
-            <div class="status-dot" id="connection-dot"></div>
-            <span id="connection-text">Déconnecté</span>
-        </div>
+    <div class="container">
+        <h1>🐕 PiDog Advanced Control</h1>
 
-        <div class="header">
-            🐕 PIDOG ADVANCED CONTROLLER
-        </div>
+        <!-- Contrôle de Mouvement -->
+        <div class="panel">
+            <h2>🎮 Contrôle de Mouvement</h2>
 
-        <!-- Joystick Gauche - Mouvement -->
-        <div class="left-controls">
-            <div class="joystick-container" id="movement-joystick">
-                <div class="joystick-base"></div>
-                <div class="joystick-knob" id="movement-knob">🎮</div>
-            </div>
-            <div class="joystick-label">MOUVEMENT</div>
-            
-            <div class="action-buttons">
-                <button class="action-btn sit" onclick="sendAction('sit')" title="Asseoir">SIT</button>
-                <button class="action-btn stand" onclick="sendAction('stand_up')" title="Debout">STAND</button>
-                <button class="action-btn lie" onclick="sendAction('lie_down')" title="Coucher">LIE</button>
-                <button class="action-btn stretch" onclick="sendAction('stretch')" title="Étirer">STRETCH</button>
-            </div>
-        </div>
+            <div class="joystick-container">
+                <div>
+                    <div class="joystick" id="movementJoystick">
+                        <div class="joystick-knob" id="movementKnob"></div>
+                    </div>
+                    <div class="joystick-label">Déplacement</div>
+                </div>
 
-        <!-- Centre - Caméra et Infos -->
-        <div class="center-display">
-            <div class="video-stream" id="video-container">
-                <div class="video-placeholder" id="video-placeholder">
-                    📹 Chargement caméra...
+                <div>
+                    <div class="joystick" id="headJoystick">
+                        <div class="joystick-knob" id="headKnob"></div>
+                    </div>
+                    <div class="joystick-label">Tête</div>
                 </div>
             </div>
-            
-            <button class="face-detection-toggle" id="face-toggle" onclick="toggleFaceDetection()">
-                👁️ Détection Visage: OFF
+
+            <div class="obstacle-warning" id="obstacleWarning">
+                ⚠️ OBSTACLE DÉTECTÉ - Mouvement bloqué
+            </div>
+
+            <!-- Contrôle de Distance -->
+            <div class="control-group">
+                <h3>📏 Mouvement par Distance</h3>
+                <div class="distance-input">
+                    <label>Distance:</label>
+                    <input type="number" id="distanceInput" value="1.0" min="0.1" max="10" step="0.1">
+                    <label>mètres</label>
+                </div>
+                <button class="btn btn-info" onclick="moveDistance('forward')">
+                    ⬆️ Avancer
+                </button>
+                <button class="btn btn-warning" onclick="moveDistance('backward')">
+                    ⬇️ Reculer
+                </button>
+            </div>
+
+            <!-- Actions du Robot -->
+            <div class="control-group">
+                <h3>🎭 Actions</h3>
+                <button class="btn" onclick="performAction('sit')">Assis</button>
+                <button class="btn" onclick="performAction('stand_up')">Debout</button>
+                <button class="btn" onclick="performAction('lie_down')">Couché</button>
+                <button class="btn" onclick="performAction('wag_tail')">Remuer Queue</button>
+                <button class="btn" onclick="performAction('stretch')">S'étirer</button>
+                <button class="btn" onclick="performAction('shake_head')">Secouer Tête</button>
+            </div>
+
+            <!-- Contrôles Spéciaux -->
+            <div class="control-group">
+                <h3>🔊 Sons & Modes</h3>
+                <button class="btn btn-secondary" onclick="bark()">🔊 Aboyer</button>
+                <button class="btn btn-secondary" onclick="pant()">😤 Haleter</button>
+                <button class="btn btn-secondary" onclick="scratch()">🐾 Gratter</button>
+                <button class="btn btn-info" id="autonomousBtn" onclick="toggleAutonomous()">
+                    🤖 Mode Auto: OFF
+                </button>
+            </div>
+        </div>
+
+        <!-- Détection d'Obstacles -->
+        <div class="panel">
+            <h2>🛡️ Détection d'Obstacles</h2>
+
+            <button class="btn btn-info" onclick="scanObstacles()">
+                🔍 Scanner Environnement
             </button>
+
+            <div class="scan-visualization" id="scanVisualization">
+                <h4>Vision 360° du Robot</h4>
+                <div class="scan-angles" id="scanAngles">
+                    <div class="angle-reading" data-angle="-45">
+                        <div>-45°</div>
+                        <div id="dist-45">--</div>
+                    </div>
+                    <div class="angle-reading" data-angle="-30">
+                        <div>-30°</div>
+                        <div id="dist-30">--</div>
+                    </div>
+                    <div class="angle-reading" data-angle="0">
+                        <div>0° (Face)</div>
+                        <div id="dist0">--</div>
+                    </div>
+                    <div class="angle-reading" data-angle="30">
+                        <div>+30°</div>
+                        <div id="dist30">--</div>
+                    </div>
+                    <div class="angle-reading" data-angle="45">
+                        <div>+45°</div>
+                        <div id="dist45">--</div>
+                    </div>
+                </div>
+                <div id="safeDirection">Direction sûre: En attente de scan...</div>
+            </div>
+
+            <div class="status-display">
+                <h4>📊 État du Système</h4>
+                <div class="status-item">
+                    <span>Connexion:</span>
+                    <span id="connectionStatus">🔴 Déconnecté</span>
+                </div>
+                <div class="status-item">
+                    <span>Distance Frontale:</span>
+                    <span id="frontDistance">-- cm</span>
+                </div>
+                <div class="status-item">
+                    <span>Obstacle Détecté:</span>
+                    <span id="obstacleStatus">Non</span>
+                </div>
+                <div class="status-item">
+                    <span>Position Robot:</span>
+                    <span id="robotStatus">Inconnu</span>
+                </div>
+                <div class="status-item">
+                    <span>Mode Autonome:</span>
+                    <span id="autonomousStatus">Inactif</span>
+                </div>
+            </div>
         </div>
 
-        <!-- Joystick Droit - Contrôle Tête -->
-        <div class="right-controls">
-            <div class="joystick-container" id="head-joystick">
-                <div class="joystick-base"></div>
-                <div class="joystick-knob" id="head-knob">👁️</div>
-            </div>
-            <div class="joystick-label">CONTRÔLE TÊTE</div>
-            
-            <div class="action-buttons">
-                <button class="action-btn bark" onclick="sendAction('bark')" title="Aboyer">BARK</button>
-                <button class="action-btn wag" onclick="sendAction('wag_tail')" title="Remuer Queue">WAG</button>
-                <button class="action-btn bark" onclick="sendAction('pant')" title="Haleter" style="background: linear-gradient(145deg, #f97316, #ea580c);">PANT</button>
-                <button class="action-btn wag" onclick="sendAction('scratch')" title="Gratter" style="background: linear-gradient(145deg, #84cc16, #65a30d);">SCRATCH</button>
-            </div>
-        </div>
-
-        <!-- Panneau de Statut -->
-        <div class="status-panel">
-            <div class="status-item">
-                <div class="status-label">Move X/Y</div>
-                <div class="status-value" id="move-coords">0.00 / 0.00</div>
-            </div>
-            <div class="status-item">
-                <div class="status-label">Head X/Y</div>
-                <div class="status-value" id="head-coords">0.00 / 0.00</div>
-            </div>
-            <div class="status-item">
-                <div class="status-label">Direction</div>
-                <div class="status-value" id="direction">STOP</div>
-            </div>
-            <div class="status-item">
-                <div class="status-label">Vitesse</div>
-                <div class="status-value" id="speed">0%</div>
-            </div>
-            <div class="status-item">
-                <div class="status-label">Distance</div>
-                <div class="status-value" id="distance">-- cm</div>
-            </div>
-            <div class="status-item">
-                <div class="status-label">Statut</div>
-                <div class="status-value" id="status">En attente...</div>
+        <!-- Informations Capteurs -->
+        <div class="panel sensor-panel">
+            <h2>📡 Capteurs en Temps Réel</h2>
+            <div class="sensor-grid">
+                <div class="sensor-card">
+                    <h4>Distance Ultrasonique</h4>
+                    <div class="sensor-value" id="ultrasonicValue">-- cm</div>
+                    <div id="ultrasonicStatus">En attente...</div>
+                </div>
+                <div class="sensor-card">
+                    <h4>Seuil de Sécurité</h4>
+                    <div class="sensor-value">25 cm</div>
+                    <div>Distance minimale</div>
+                </div>
+                <div class="sensor-card">
+                    <h4>Statut Mouvement</h4>
+                    <div class="sensor-value" id="movementStatus">🛑</div>
+                    <div id="movementText">Arrêté</div>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Configuration
-        const MIN_SPEED = 85;
-        const MAX_SPEED = 98;
-        const DEADZONE = 0.35;
-        const SEND_INTERVAL = 80;
-
         // Variables globales
-        let movementDragging = false;
-        let headDragging = false;
-        let lastMovementSend = 0;
-        let lastHeadSend = 0;
-        let currentMoveKx = 0;
-        let currentMoveKy = 0;
-        let currentHeadQx = 0;
-        let currentHeadQy = 0;
-        let faceDetectionEnabled = false;
-        let connectionStatus = false;
+        let isMoving = false;
+        let autonomousMode = false;
+        let lastObstacleCheck = 0;
 
-        // Éléments DOM
-        const movementJoystick = document.getElementById('movement-joystick');
-        const movementKnob = document.getElementById('movement-knob');
-        const headJoystick = document.getElementById('head-joystick');
-        const headKnob = document.getElementById('head-knob');
-        const connectionDot = document.getElementById('connection-dot');
-        const connectionText = document.getElementById('connection-text');
-        const videoContainer = document.getElementById('video-container');
-        const videoPlaceholder = document.getElementById('video-placeholder');
+        // Configuration des joysticks
+        class JoystickController {
+            constructor(containerElement, knobElement, callback) {
+                this.container = containerElement;
+                this.knob = knobElement;
+                this.callback = callback;
+                this.isDragging = false;
+                this.centerX = 0;
+                this.centerY = 0;
+                this.maxDistance = 0;
 
-        // Ajout du switch autonome
-        const autonomousSwitch = document.getElementById('autonomous-switch');
-        const autonomousStatus = document.getElementById('autonomous-status');
-
-        // Fonctions utilitaires
-        function calculateDirection(kx, ky) {
-            const kr = Math.sqrt(kx*kx + ky*ky);
-            if (kr < DEADZONE) {
-                return { direction: "stop", speed: 0, kr: kr };
+                this.setupEvents();
+                this.calculateCenter();
             }
-            
-            const ka = Math.atan2(ky, kx) * 180 / Math.PI;
-            let direction;
-            
-            if (ka > 45 && ka < 135) {
-                direction = "forward";
-            } else if (ka > 135 || ka < -135) {
-                direction = "turn_left";
-            } else if (ka > -45 && ka < 45) {
-                direction = "turn_right";
-            } else if (ka > -135 && ka < -45) {
-                direction = "backward";
+
+            calculateCenter() {
+                const rect = this.container.getBoundingClientRect();
+                this.centerX = rect.width / 2;
+                this.centerY = rect.height / 2;
+                this.maxDistance = Math.min(this.centerX, this.centerY) - 20;
+            }
+
+            setupEvents() {
+                this.container.addEventListener('mousedown', this.startDrag.bind(this));
+                this.container.addEventListener('touchstart', this.startDrag.bind(this));
+                document.addEventListener('mousemove', this.drag.bind(this));
+                document.addEventListener('touchmove', this.drag.bind(this));
+                document.addEventListener('mouseup', this.stopDrag.bind(this));
+                document.addEventListener('touchend', this.stopDrag.bind(this));
+            }
+
+            startDrag(e) {
+                e.preventDefault();
+                this.isDragging = true;
+                this.drag(e);
+            }
+
+            drag(e) {
+                if (!this.isDragging) return;
+                e.preventDefault();
+
+                const clientX = e.clientX || e.touches[0].clientX;
+                const clientY = e.clientY || e.touches[0].clientY;
+                const rect = this.container.getBoundingClientRect();
+
+                let x = clientX - rect.left - this.centerX;
+                let y = clientY - rect.top - this.centerY;
+
+                const distance = Math.sqrt(x * x + y * y);
+                if (distance > this.maxDistance) {
+                    x = (x / distance) * this.maxDistance;
+                    y = (y / distance) * this.maxDistance;
+                }
+
+                this.knob.style.transform = `translate(${x + this.centerX - 20}px, ${y + this.centerY - 20}px)`;
+
+                // Calcul des valeurs normalisées
+                const normalizedX = x / this.maxDistance;
+                const normalizedY = -y / this.maxDistance; // Inverser Y pour correspondre aux conventions
+                const intensity = Math.min(distance / this.maxDistance, 1);
+                const angle = Math.atan2(-y, x) * 180 / Math.PI;
+                const adjustedAngle = (90 - angle + 360) % 360; // Ajuster pour que 0° soit vers le haut
+
+                this.callback({
+                    x: normalizedX,
+                    y: normalizedY,
+                    intensity: intensity,
+                    angle: adjustedAngle
+                });
+            }
+
+            stopDrag() {
+                if (!this.isDragging) return;
+                this.isDragging = false;
+
+                // Remettre le joystick au centre
+                this.knob.style.transform = `translate(${this.centerX - 20}px, ${this.centerY - 20}px)`;
+
+                this.callback({
+                    x: 0,
+                    y: 0,
+                    intensity: 0,
+                    angle: 0
+                });
+            }
+        }
+
+        // Initialisation des joysticks
+        const movementJoystick = new JoystickController(
+            document.getElementById('movementJoystick'),
+            document.getElementById('movementKnob'),
+            handleMovementJoystick
+        );
+
+        const headJoystick = new JoystickController(
+            document.getElementById('headJoystick'),
+            document.getElementById('headKnob'),
+            handleHeadJoystick
+        );
+
+        // Gestionnaires de joysticks
+        function handleMovementJoystick(data) {
+            if (data.intensity > 0.1) {
+                sendCommand({
+                    angle: data.angle,
+                    intensity: data.intensity
+                });
             } else {
-                direction = "stop";
-            }
-            
-            const speed = direction === "stop" ? 0 : 
-                         Math.round(MIN_SPEED + (MAX_SPEED - MIN_SPEED) * Math.min(kr, 1.0));
-            
-            return { direction, speed, kr };
-        }
-
-        function updateConnectionStatus(connected) {
-            connectionStatus = connected;
-            if (connected) {
-                connectionDot.classList.add('connected');
-                connectionText.textContent = 'Connecté';
-            } else {
-                connectionDot.classList.remove('connected');
-                connectionText.textContent = 'Déconnecté';
+                sendCommand({
+                    angle: 0,
+                    intensity: 0
+                });
             }
         }
 
-        function updateInterface() {
-            // Mise à jour coordonnées mouvement
-            document.getElementById('move-coords').textContent = 
-                `${currentMoveKx.toFixed(2)} / ${currentMoveKy.toFixed(2)}`;
-            
-            // Mise à jour coordonnées tête
-            document.getElementById('head-coords').textContent = 
-                `${currentHeadQx.toFixed(2)} / ${currentHeadQy.toFixed(2)}`;
-            
-            // Calcul direction et vitesse
-            const result = calculateDirection(currentMoveKx, currentMoveKy);
-            document.getElementById('direction').textContent = result.direction.toUpperCase();
-            document.getElementById('speed').textContent = `${result.speed}%`;
-        }
+        function handleHeadJoystick(data) {
+            const qx = data.x * 100;
+            const qy = data.y * 100;
 
-        // Gestion des joysticks
-        function setKnobPosition(knob, joystick, x, y) {
-            const rect = joystick.getBoundingClientRect();
-            const centerX = rect.width / 2;
-            const centerY = rect.height / 2;
-            knob.style.left = `${x}px`;
-            knob.style.top = `${y}px`;
-        }
-
-        function handleMovementJoystick(clientX, clientY) {
-            const rect = movementJoystick.getBoundingClientRect();
-            const centerX = rect.width / 2;
-            const centerY = rect.height / 2;
-            let x = clientX - rect.left;
-            let y = clientY - rect.top;
-            let dx = x - centerX;
-            let dy = y - centerY;
-            let dist = Math.sqrt(dx*dx + dy*dy);
-            const maxDist = centerX - 25; // knob radius
-
-            if (dist > maxDist) {
-                dx = dx * maxDist / dist;
-                dy = dy * maxDist / dist;
-            }
-
-            setKnobPosition(movementKnob, movementJoystick, centerX + dx, centerY + dy);
-
-            // Conversion vers format serveur - CORRECTION Y inversé
-            currentMoveKx = dx / maxDist;
-            currentMoveKy = -dy / maxDist;  // ⚡ INVERSION : dy négatif devient positif vers le haut
-            
-            updateInterface();
-            sendMovementCommand();
-        }
-
-        function handleHeadJoystick(clientX, clientY) {
-            const rect = headJoystick.getBoundingClientRect();
-            const centerX = rect.width / 2;
-            const centerY = rect.height / 2;
-            let x = clientX - rect.left;
-            let y = clientY - rect.top;
-            let dx = x - centerX;
-            let dy = y - centerY;
-            let dist = Math.sqrt(dx*dx + dy*dy);
-            const maxDist = centerX - 25; // knob radius
-
-            if (dist > maxDist) {
-                dx = dx * maxDist / dist;
-                dy = dy * maxDist / dist;
-            }
-
-            setKnobPosition(headKnob, headJoystick, centerX + dx, centerY + dy);
-
-            // Conversion pour contrôle de tête (range -100 à 100) - INVERSION AXE Y UNIQUEMENT
-            currentHeadQx = -(dx / maxDist) * 100;
-            currentHeadQy = -(dy / maxDist) * 100;
-            
-            updateInterface();
-            sendHeadCommand();
-        }
-
-        function resetMovementJoystick() {
-            const rect = movementJoystick.getBoundingClientRect();
-            setKnobPosition(movementKnob, movementJoystick, rect.width / 2, rect.height / 2);
-            currentMoveKx = 0;
-            currentMoveKy = 0;
-            updateInterface();
-            sendMovementCommand();
-        }
-
-        function resetHeadJoystick() {
-            const rect = headJoystick.getBoundingClientRect();
-            setKnobPosition(headKnob, headJoystick, rect.width / 2, rect.height / 2);
-            currentHeadQx = 0;
-            currentHeadQy = 0;
-            updateInterface();
-            sendHeadCommand();
-        }
-
-        // Communication avec le serveur
-        function sendMovementCommand() {
-            const now = Date.now();
-            if (now - lastMovementSend < SEND_INTERVAL) return;
-            lastMovementSend = now;
-
-            fetch('/command', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    kx: currentMoveKx, 
-                    ky: currentMoveKy 
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                updateConnectionStatus(true);
-                document.getElementById('status').textContent = 
-                    data.status === 'success' ? '✅ OK' : `❌ ${data.message}`;
-            })
-            .catch(error => {
-                updateConnectionStatus(false);
-                document.getElementById('status').textContent = '🔴 Erreur réseau';
-            });
-        }
-
-        function sendHeadCommand() {
-            const now = Date.now();
-            if (now - lastHeadSend < SEND_INTERVAL) return;
-            lastHeadSend = now;
-
-            // Envoyer commande de contrôle de tête (implémentation selon votre serveur)
             fetch('/head_control', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    qx: currentHeadQx, 
-                    qy: currentHeadQy 
-                })
-            })
-            .catch(error => console.log('Head control not implemented yet'));
+                body: JSON.stringify({ qx: qx, qy: qy })
+            });
         }
 
-        function sendAction(action) {
+        // Envoi des commandes de mouvement
+        function sendCommand(data) {
+            fetch('/command', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.status === 'warning') {
+                    // Obstacle détecté
+                    showObstacleWarning(true);
+                    updateMovementStatus('🛑 Bloqué', 'Obstacle détecté');
+                } else if (result.status === 'success') {
+                    showObstacleWarning(false);
+                    if (data.intensity > 0.1) {
+                        updateMovementStatus('🏃 En mouvement', result.message);
+                    } else {
+                        updateMovementStatus('🛑 Arrêté', 'Repos');
+                    }
+                }
+            })
+            .catch(error => console.error('Erreur commande:', error));
+        }
+
+        // Mouvement par distance
+        function moveDistance(direction) {
+            const distance = parseFloat(document.getElementById('distanceInput').value);
+
+            if (distance <= 0 || distance > 10) {
+                alert('Distance invalide (0.1 - 10 mètres)');
+                return;
+            }
+
+            updateMovementStatus('🚀 Mouvement programmé', `${direction} ${distance}m`);
+
+            fetch('/move_distance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    distance: distance,
+                    direction: direction
+                })
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.status === 'success') {
+                    updateMovementStatus('✅ Terminé', result.message);
+                } else {
+                    updateMovementStatus('❌ Échec', result.message);
+                }
+            })
+            .catch(error => {
+                console.error('Erreur mouvement distance:', error);
+                updateMovementStatus('❌ Erreur', 'Échec de communication');
+            });
+        }
+
+        // Scan des obstacles
+        function scanObstacles() {
+            updateMovementStatus('🔍 Scan en cours', 'Analyse environnement');
+
+            fetch('/scan_obstacles')
+            .then(response => response.json())
+            .then(result => {
+                if (result.status === 'success') {
+                    updateScanVisualization(result);
+                    updateMovementStatus('📡 Scan terminé', 'Données mises à jour');
+                }
+            })
+            .catch(error => {
+                console.error('Erreur scan:', error);
+                updateMovementStatus('❌ Erreur scan', 'Échec de communication');
+            });
+        }
+
+        // Mise à jour de la visualisation du scan
+        function updateScanVisualization(scanData) {
+            const distances = scanData.distances;
+            const threshold = scanData.obstacle_threshold;
+
+            // Mise à jour des lectures d'angles
+            for (const [angle, distance] of Object.entries(distances)) {
+                const elementId = `dist${angle.replace('-', '')}`;
+                const element = document.getElementById(elementId);
+
+                if (element) {
+                    element.textContent = `${distance.toFixed(1)}cm`;
+
+                    // Colorisation selon la distance
+                    const angleElement = element.parentElement;
+                    angleElement.className = 'angle-reading';
+
+                    if (distance < threshold) {
+                        angleElement.classList.add('danger');
+                    } else if (distance < threshold * 1.5) {
+                        angleElement.classList.add('warning');
+                    } else {
+                        angleElement.classList.add('safe');
+                    }
+                }
+            }
+
+            // Mise à jour de la direction sûre
+            const safeDirectionElement = document.getElementById('safeDirection');
+            if (scanData.safe_direction) {
+                const directionMap = {
+                    'turn_left': '⬅️ Tourner à gauche',
+                    'turn_right': '➡️ Tourner à droite',
+                    'backward': '⬇️ Reculer',
+                    'forward': '⬆️ Avancer libre'
+                };
+
+                safeDirectionElement.textContent =
+                    `Direction sûre: ${directionMap[scanData.safe_direction] || scanData.safe_direction}
+                     (${scanData.safe_distance.toFixed(1)}cm)`;
+            } else {
+                safeDirectionElement.textContent = 'Direction sûre: Aucune direction claire';
+            }
+        }
+
+        // Actions du robot
+        function performAction(action) {
             fetch('/action', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: action })
             })
             .then(response => response.json())
-            .then(data => {
-                document.getElementById('status').textContent = 
-                    data.status === 'success' ? `✅ ${action}` : `❌ Erreur`;
+            .then(result => {
+                updateMovementStatus('🎭 Action', result.message);
             })
-            .catch(error => {
-                document.getElementById('status').textContent = '🔴 Erreur action';
-            });
+            .catch(error => console.error('Erreur action:', error));
         }
 
-        function toggleFaceDetection() {
-            faceDetectionEnabled = !faceDetectionEnabled;
-            const toggle = document.getElementById('face-toggle');
-            
-            if (faceDetectionEnabled) {
-                toggle.classList.add('active');
-                toggle.textContent = '👁️ Détection Visage: ON';
-            } else {
-                toggle.classList.remove('active');
-                toggle.textContent = '👁️ Détection Visage: OFF';
-            }
-
-            fetch('/face_detection', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ enabled: faceDetectionEnabled })
-            })
-            .catch(error => console.log('Face detection control not implemented yet'));
+        // Sons
+        function bark() {
+            fetch('/bark', { method: 'POST' })
+            .then(response => response.json())
+            .then(result => updateMovementStatus('🔊 Son', result.message));
         }
 
-        // Event Listeners pour joystick de mouvement
-        movementKnob.addEventListener('mousedown', function(e) {
-            movementDragging = true;
-            movementKnob.classList.add('active');
-            e.preventDefault();
-        });
-
-        movementKnob.addEventListener('touchstart', function(e) {
-            movementDragging = true;
-            movementKnob.classList.add('active');
-            e.preventDefault();
-        });
-
-        // Event Listeners pour joystick de tête
-        headKnob.addEventListener('mousedown', function(e) {
-            headDragging = true;
-            headKnob.classList.add('active');
-            e.preventDefault();
-        });
-
-        headKnob.addEventListener('touchstart', function(e) {
-            headDragging = true;
-            headKnob.classList.add('active');
-            e.preventDefault();
-        });
-
-        // Event Listeners globaux
-        document.addEventListener('mousemove', function(e) {
-            if (movementDragging) {
-                handleMovementJoystick(e.clientX, e.clientY);
-            }
-            if (headDragging) {
-                handleHeadJoystick(e.clientX, e.clientY);
-            }
-        });
-
-        document.addEventListener('touchmove', function(e) {
-            if (e.touches.length === 1) {
-                if (movementDragging) {
-                    handleMovementJoystick(e.touches[0].clientX, e.touches[0].clientY);
-                }
-                if (headDragging) {
-                    handleHeadJoystick(e.touches[0].clientX, e.touches[0].clientY);
-                }
-                e.preventDefault();
-            }
-        });
-
-        document.addEventListener('mouseup', function(e) {
-            if (movementDragging) {
-                movementDragging = false;
-                movementKnob.classList.remove('active');
-                resetMovementJoystick();
-            }
-            if (headDragging) {
-                headDragging = false;
-                headKnob.classList.remove('active');
-                resetHeadJoystick();
-            }
-        });
-
-        document.addEventListener('touchend', function(e) {
-            if (movementDragging) {
-                movementDragging = false;
-                movementKnob.classList.remove('active');
-                resetMovementJoystick();
-            }
-            if (headDragging) {
-                headDragging = false;
-                headKnob.classList.remove('active');
-                resetHeadJoystick();
-            }
-        });
-
-        // Initialisation du streaming vidéo
-        function initVideoStream() {
-            // Récupération de l'IP pour le streaming
-            fetch('/get_ip')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.ip) {
-                        const iframe = document.createElement('iframe');
-                        iframe.src = `http://${data.ip}:9000/mjpg`;
-                        iframe.style.width = '100%';
-                        iframe.style.height = '100%';
-                        iframe.style.border = 'none';
-                        videoContainer.removeChild(videoPlaceholder);
-                        videoContainer.appendChild(iframe);
-                    }
-                })
-                .catch(error => {
-                    videoPlaceholder.textContent = '❌ Caméra indisponible';
-                });
+        function pant() {
+            fetch('/pant', { method: 'POST' })
+            .then(response => response.json())
+            .then(result => updateMovementStatus('😤 Son', result.message));
         }
 
-        // Mise à jour périodique des données capteur
-        function updateSensorData() {
-            fetch('/sensor_data')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.distance !== undefined) {
-                        document.getElementById('distance').textContent = `${data.distance} cm`;
-                    }
-                })
-                .catch(error => {
-                    document.getElementById('distance').textContent = '-- cm';
-                });
+        function scratch() {
+            fetch('/scratch', { method: 'POST' })
+            .then(response => response.json())
+            .then(result => updateMovementStatus('🐾 Action', result.message));
         }
 
-        // Initialisation
-        window.addEventListener('load', function() {
-            resetMovementJoystick();
-            resetHeadJoystick();
-            updateInterface();
-            updateConnectionStatus(false);
-            
-            // Tentative d'initialisation du streaming
-            setTimeout(initVideoStream, 1000);
-            
-            // Mise à jour périodique des capteurs
-            setInterval(updateSensorData, 1000);
-            
-            // Test de connexion initial
-            fetch('/status')
-                .then(response => response.json())
-                .then(data => updateConnectionStatus(true))
-                .catch(error => updateConnectionStatus(false));
-        });
+        // Mode autonome
+        function toggleAutonomous() {
+            autonomousMode = !autonomousMode;
 
-        // Ajout du switch autonome
-        autonomousSwitch.onchange = function() {
-            const enabled = autonomousSwitch.checked;
             fetch('/autonomous_mode', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ enabled })
+                body: JSON.stringify({ enabled: autonomousMode })
             })
             .then(response => response.json())
+            .then(result => {
+                autonomousMode = result.enabled;
+                const btn = document.getElementById('autonomousBtn');
+                btn.textContent = `🤖 Mode Auto: ${autonomousMode ? 'ON' : 'OFF'}`;
+                btn.className = autonomousMode ? 'btn btn-danger' : 'btn btn-info';
+
+                document.getElementById('autonomousStatus').textContent =
+                    autonomousMode ? '🟢 Actif' : '🔴 Inactif';
+            });
+        }
+
+        // Affichage alerte obstacle
+        function showObstacleWarning(show) {
+            const warning = document.getElementById('obstacleWarning');
+            warning.style.display = show ? 'block' : 'none';
+        }
+
+        // Mise à jour du statut de mouvement
+        function updateMovementStatus(status, message) {
+            document.getElementById('movementStatus').textContent = status;
+            document.getElementById('movementText').textContent = message;
+        }
+
+        // Mise à jour des données capteurs
+        function updateSensorData() {
+            fetch('/sensor_data')
+            .then(response => response.json())
             .then(data => {
-                if (data.status === 'success') {
-                    autonomousStatus.textContent = enabled ? 'ON' : 'OFF';
-                    autonomousStatus.style.color = enabled ? '#10b981' : '#6366f1';
-                } else {
-                    document.getElementById('status').textContent = `❌ Erreur: ${data.message}`;
-                    autonomousSwitch.checked = !enabled;
+                if (!data.error) {
+                    // Distance ultrasonique
+                    const distance = data.distance;
+                    document.getElementById('frontDistance').textContent = `${distance} cm`;
+                    document.getElementById('ultrasonicValue').textContent = `${distance} cm`;
+
+                    // Statut obstacle
+                    const obstacleDetected = data.obstacle_detected;
+                    document.getElementById('obstacleStatus').textContent =
+                        obstacleDetected ? '⚠️ Oui' : '✅ Non';
+
+                    // Statut ultrasonique
+                    const ultrasonicStatus = document.getElementById('ultrasonicStatus');
+                    if (distance < 25) {
+                        ultrasonicStatus.textContent = '⚠️ Obstacle proche';
+                        ultrasonicStatus.style.color = '#ff5722';
+                    } else if (distance < 50) {
+                        ultrasonicStatus.textContent = '⚡ Attention';
+                        ultrasonicStatus.style.color = '#ff9800';
+                    } else {
+                        ultrasonicStatus.textContent = '✅ Zone libre';
+                        ultrasonicStatus.style.color = '#4caf50';
+                    }
+
+                    // Position robot
+                    const statusMap = {0: 'Debout', 1: 'Assis', 2: 'Couché'};
+                    document.getElementById('robotStatus').textContent =
+                        statusMap[data.status] || 'Inconnu';
                 }
             })
-            .catch(() => {
-                document.getElementById('status').textContent = '🔴 Erreur de communication';
-                autonomousSwitch.checked = !enabled;
+            .catch(error => {
+                document.getElementById('ultrasonicStatus').textContent = '❌ Erreur capteur';
             });
-        };
+        }
+
+        // Vérification du statut général
+        function updateSystemStatus() {
+            fetch('/status')
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'connected') {
+                    document.getElementById('connectionStatus').textContent = '🟢 Connecté';
+                } else {
+                    document.getElementById('connectionStatus').textContent = '🔴 Déconnecté';
+                }
+
+                // Mode autonome
+                if (data.autonomous_mode !== undefined) {
+                    autonomousMode = data.autonomous_mode;
+                    document.getElementById('autonomousStatus').textContent =
+                        autonomousMode ? '🟢 Actif' : '🔴 Inactif';
+                }
+            })
+            .catch(error => {
+                document.getElementById('connectionStatus').textContent = '🔴 Erreur';
+            });
+        }
+
+        // Initialisation et boucles de mise à jour
+        document.addEventListener('DOMContentLoaded', function() {
+            // Mise à jour initiale
+            updateSystemStatus();
+            updateSensorData();
+
+            // Mise à jour périodique des capteurs
+            setInterval(updateSensorData, 500);  // Toutes les 500ms
+            setInterval(updateSystemStatus, 2000);  // Toutes les 2s
+        });
     </script>
 </body>
 </html>
