@@ -553,11 +553,12 @@
         const knobRadius = 35;
         let dragging = false;
         let lastSendTime = 0;
-        const SEND_INTERVAL = 80;
+        const SEND_INTERVAL = 30; // Réduit de 80ms à 30ms pour plus de réactivité
         let lastKx = 0;
         let lastKy = 0;
         let commandTimeout = null;
         let autonomousMode = false;
+        let lastCommandSent = Date.now(); // Pour suivre le moment de la dernière commande envoyée
 
         const MIN_SPEED = 85;
         const MAX_SPEED = 98;
@@ -735,6 +736,7 @@
         function handleMove(clientX, clientY) {
             if (autonomousMode) return;
             
+            const now = Date.now();
             const rect = joystick.getBoundingClientRect();
             let x = clientX - rect.left;
             let y = clientY - rect.top;
@@ -755,12 +757,23 @@
             
             updateInterface(kx, ky);
             
-            if (commandTimeout) {
-                clearTimeout(commandTimeout);
-            }
-            commandTimeout = setTimeout(() => {
+            // Envoyer immédiatement si c'est la première commande ou si le délai est écoulé
+            if (now - lastCommandSent >= SEND_INTERVAL) {
+                if (commandTimeout) {
+                    clearTimeout(commandTimeout);
+                    commandTimeout = null;
+                }
                 sendCommand(kx, ky);
-            }, SEND_INTERVAL);
+                lastCommandSent = now;
+            } 
+            // Sinon, planifier l'envoi pour le prochain intervalle
+            else if (!commandTimeout) {
+                commandTimeout = setTimeout(() => {
+                    sendCommand(kx, ky);
+                    lastCommandSent = Date.now();
+                    commandTimeout = null;
+                }, SEND_INTERVAL - (now - lastCommandSent));
+            }
         }
 
         // ===== EVENT LISTENERS =====
