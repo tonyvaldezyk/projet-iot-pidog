@@ -619,23 +619,56 @@
             return { direction, speed, kr };
         }
 
-        function sendCommand(kx, ky) {
+        // ===== COMMUNICATION =====
+        const requestsInProgress = new Set();
+        const MAX_RETRIES = 3;
+        const RETRY_DELAY = 200; // ms
+
+        async function sendRequest(url, data) {
             if (autonomousMode) {
                 console.log("Commande bloquée : mode autonome actif");
-                return;
-            }
-            if (commandTimeout) {
-                console.log("Commande bloquée : transition en cours");
-                return;
+                return { status: 'blocked' };
             }
             
+            if (requestsInProgress.has(url)) {
+                console.log("Requête en cours, ignorée");
+                return { status: 'duplicate' };
+            }
+            
+            requestsInProgress.add(url);
+            
+            try {
+                const fullUrl = ROBOT_BASE_URL + url;
+                const response = await fetch(fullUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                updateConnectionStatus(true, result.status === 'busy');
+                return result;
+                
+            } catch (error) {
+                console.error('Erreur de requête:', error);
+                updateConnectionStatus(false);
+                return { status: 'error', message: 'Erreur de connexion' };
+                
+            } finally {
+                requestsInProgress.delete(url);
+            }
+        }
+
+        async function sendCommand(kx, ky, retryCount = 0) {
             const now = Date.now();
             
-            if (now - lastSendTime < SEND_INTERVAL) {
+            // Vérifier le délai minimum entre les commandes
+            if (now - lastSendTime < SEND_INTERVAL && retryCount === 0) {
                 return;
             }
             
-            if (Math.abs(kx - lastKx) < 0.05 && Math.abs(ky - lastKy) < 0.05) {
+            // Seuil de détection augmenté pour éviter les changements trop sensibles
+            if (Math.abs(kx - lastKx) < 0.1 && Math.abs(ky - lastKy) < 0.1 && retryCount === 0) {
                 return;
             }
             
@@ -644,33 +677,26 @@
             lastKy = ky;
 
             const result = calculateDirection(kx, ky);
-            
             statusDiv.textContent = `📡 Envoi: ${result.direction} (${result.speed}%)`;
             
-            const url = ROBOT_BASE_URL ? ROBOT_BASE_URL + '/command' : '/command';
-            
-            fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ kx: kx, ky: ky })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    statusDiv.textContent = `✅ ${data.message}`;
-                    updateConnectionStatus(true);
-                } else if (data.status === 'busy') {
-                    statusDiv.textContent = '⏳ Robot occupé, réessai...';
-                    setTimeout(() => sendCommand(kx, ky), 200);
-                } else {
-                    statusDiv.textContent = `❌ Erreur: ${data.message}`;
+            try {
+                const response = await sendRequest('/command', { kx, ky });
+                
+                if (response.status === 'success') {
+                    statusDiv.textContent = `✅ ${response.message || 'Commande envoyée'}`;
+                } 
+                else if (response.status === 'busy' && retryCount < MAX_RETRIES) {
+                    statusDiv.textContent = `⏳ Robot occupé, réessai ${retryCount + 1}/${MAX_RETRIES}...`;
+                    setTimeout(() => sendCommand(kx, ky, retryCount + 1), RETRY_DELAY);
                 }
-            })
-            .catch((error) => {
+                else if (response.status === 'error') {
+                    statusDiv.textContent = `❌ ${response.message || 'Erreur inconnue'}`;
+                }
+                
+            } catch (error) {
+                console.error('Erreur dans sendCommand:', error);
                 statusDiv.textContent = '🔴 Erreur de communication';
-                updateConnectionStatus(false);
-                console.error('Erreur:', error);
-            });
+            }
         }
 
         function setKnob(x, y) {
