@@ -1,0 +1,900 @@
+openapi: 3.0.0
+info:
+  title: PiDog Robot API
+  description: |
+    API complète pour contrôler le robot PiDog
+    - Contrôle de mouvement (joystick virtuel)
+    - Contrôle de la tête
+    - Actions spéciales
+    - Mode autonome
+    - Données des capteurs
+  version: 2.0.0
+  contact:
+    name: PiDog API Support
+    email: support@pidog.local
+servers:
+  - url: http://localhost:5000
+    description: Serveur local de développement
+  - url: http://192.168.1.100:5000
+    description: Serveur PiDog sur réseau local (à adapter selon votre IP)
+
+paths:
+  /:
+    get:
+      summary: Page d'accueil
+      description: Retourne la page HTML principale
+      responses:
+        '200':
+          description: Page HTML principale
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /simple:
+    get:
+      summary: Interface simple
+      description: Retourne l'interface de contrôle simple
+      responses:
+        '200':
+          description: Page HTML interface simple
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /advanced:
+    get:
+      summary: Interface avancée
+      description: Retourne l'interface de contrôle avancée
+      responses:
+        '200':
+          description: Page HTML interface avancée
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /vocal:
+    get:
+      summary: Interface vocale
+      description: Retourne l'interface de contrôle vocal (version 2 uniquement)
+      responses:
+        '200':
+          description: Page HTML interface vocale
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /command:
+    post:
+      summary: Contrôle de mouvement
+      description: |
+        Contrôle universel du robot - accepte deux formats:
+        1. Format HTML: {angle, intensity}
+        2. Format alternatif: {kx, ky}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  title: Format HTML (angle/intensity)
+                  properties:
+                    angle:
+                      type: number
+                      minimum: 0
+                      maximum: 360
+                      description: "Angle en degrés (0=haut, 90=droite, 180=bas, 270=gauche)"
+                      example: 0
+                    intensity:
+                      type: number
+                      minimum: 0
+                      maximum: 1
+                      description: "Intensité du mouvement (0-1)"
+                      example: 0.8
+                  required: [angle, intensity]
+                - type: object
+                  title: Format alternatif (kx/ky)
+                  properties:
+                    kx:
+                      type: number
+                      minimum: -1
+                      maximum: 1
+                      description: "Composante X du mouvement"
+                      example: 0.5
+                    ky:
+                      type: number
+                      minimum: -1
+                      maximum: 1
+                      description: "Composante Y du mouvement"
+                      example: 0.8
+                  required: [kx, ky]
+            examples:
+              forward:
+                summary: Avancer
+                value:
+                  angle: 0
+                  intensity: 0.8
+              backward:
+                summary: Reculer
+                value:
+                  angle: 180
+                  intensity: 0.6
+              turn_right:
+                summary: Tourner à droite
+                value:
+                  angle: 90
+                  intensity: 0.7
+              turn_left:
+                summary: Tourner à gauche
+                value:
+                  angle: 270
+                  intensity: 0.7
+              stop:
+                summary: Arrêter
+                value:
+                  angle: 0
+                  intensity: 0
+              kx_ky_format:
+                summary: Format kx/ky
+                value:
+                  kx: 0.5
+                  ky: 0.8
+      responses:
+        '200':
+          description: Commande exécutée avec succès
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [success, busy, error]
+                  message:
+                    type: string
+              examples:
+                success:
+                  value:
+                    status: success
+                    message: "forward - vitesse 91%"
+                busy:
+                  value:
+                    status: busy
+                    message: "Robot occupé"
+                error:
+                  value:
+                    status: error
+                    message: "Format de données invalide"
+
+  /head_control:
+    post:
+      summary: Contrôle de la tête
+      description: Contrôle la position de la tête du robot (yaw/pitch)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                qx:
+                  type: number
+                  minimum: -100
+                  maximum: 100
+                  description: "Position horizontale (yaw) de la tête"
+                  example: 45
+                qy:
+                  type: number
+                  minimum: -100
+                  maximum: 100
+                  description: "Position verticale (pitch) de la tête"
+                  example: -20
+              required: [qx, qy]
+            examples:
+              center:
+                summary: Centrer la tête
+                value:
+                  qx: 0
+                  qy: 0
+              look_right:
+                summary: Regarder à droite
+                value:
+                  qx: 50
+                  qy: 0
+              look_left:
+                summary: Regarder à gauche
+                value:
+                  qx: -50
+                  qy: 0
+              look_up:
+                summary: Regarder en haut
+                value:
+                  qx: 0
+                  qy: -30
+              look_down:
+                summary: Regarder en bas
+                value:
+                  qx: 0
+                  qy: 20
+      responses:
+        '200':
+          description: Position de la tête mise à jour
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [success, error]
+                  message:
+                    type: string
+              examples:
+                success:
+                  value:
+                    status: success
+                    message: "Tête: yaw=45.0, pitch=-20.0"
+
+  /action:
+    post:
+      summary: Actions spéciales
+      description: Exécute des actions prédéfinies du robot
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                  enum: [sit, stand_up, lie_down, wag_tail, stretch, shake_head]
+                  description: "Action à exécuter"
+              required: [action]
+            examples:
+              sit:
+                summary: S'asseoir
+                value:
+                  action: sit
+              stand_up:
+                summary: Se lever
+                value:
+                  action: stand_up
+              lie_down:
+                summary: Se coucher
+                value:
+                  action: lie_down
+              wag_tail:
+                summary: Remuer la queue
+                value:
+                  action: wag_tail
+              stretch:
+                summary: S'étirer
+                value:
+                  action: stretch
+              shake_head:
+                summary: Secouer la tête
+                value:
+                  action: shake_head
+      responses:
+        '200':
+          description: Action exécutée
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [success, error]
+                  message:
+                    type: string
+              examples:
+                success:
+                  value:
+                    status: success
+                    message: "Action sit exécutée"
+                error:
+                  value:
+                    status: error
+                    message: "Action unknown non reconnue"
+
+  /autonomous_mode:
+    post:
+      summary: Mode autonome
+      description: Active/désactive le mode autonome du robot (version 2 uniquement)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                  description: "Activer ou désactiver le mode autonome"
+              required: [enabled]
+            examples:
+              enable:
+                summary: Activer le mode autonome
+                value:
+                  enabled: true
+              disable:
+                summary: Désactiver le mode autonome
+                value:
+                  enabled: false
+      responses:
+        '200':
+          description: Mode autonome mis à jour
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [success]
+                  enabled:
+                    type: boolean
+              examples:
+                enabled:
+                  value:
+                    status: success
+                    enabled: true
+                disabled:
+                  value:
+                    status: success
+                    enabled: false
+
+  /get_ip:
+    get:
+      summary: Obtenir l'adresse IP
+      description: Retourne l'adresse IP du robot pour le streaming
+      responses:
+        '200':
+          description: Adresse IP du robot
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ip:
+                    type: string
+                    nullable: true
+                    description: "Adresse IP (wlan0 ou eth0)"
+              examples:
+                with_ip:
+                  value:
+                    ip: "192.168.1.100"
+                no_ip:
+                  value:
+                    ip: null
+
+  /sensor_data:
+    get:
+      summary: Données des capteurs
+      description: Retourne les données des capteurs en temps réel
+      responses:
+        '200':
+          description: Données des capteurs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  distance:
+                    type: number
+                    description: "Distance mesurée par le capteur ultrason (cm)"
+                  status:
+                    type: integer
+                    enum: [0, 1, 2]
+                    description: "Statut du robot (0=debout, 1=assis, 2=couché)"
+                  error:
+                    type: string
+                    description: "Message d'erreur si applicable"
+              examples:
+                success:
+                  value:
+                    distance: 25.67
+                    status: 0
+                error:
+                  value:
+                    error: "Erreur capteur"
+
+  /status:
+    get:
+      summary: État du robot
+      description: Retourne l'état général du robot
+      responses:
+        '200':
+          description: État du robot
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [connected, error]
+                  robot_status:
+                    type: integer
+                    enum: [0, 1, 2]
+                    description: "Statut du robot (0=debout, 1=assis, 2=couché)"
+                  is_busy:
+                    type: boolean
+                    description: "Indique si le robot est occupé"
+                  message:
+                    type: string
+                    description: "Message d'erreur si applicable"
+              examples:
+                connected:
+                  value:
+                    status: connected
+                    robot_status: 0
+                    is_busy: false
+                error:
+                  value:
+                    status: error
+                    message: "Erreur de connexion"
+
+components:
+  schemas:
+    CommandResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [success, busy, error]
+        message:
+          type: string
+
+    ActionResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [success, error]
+        message:
+          type: string
+
+    SensorData:
+      type: object
+      properties:
+        distance:
+          type: number
+          description: Distance en centimètres
+        status:
+          type: integer
+          enum: [0, 1, 2]
+          description: "0=debout, 1=assis, 2=couché"
+
+    RobotStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [connected, error]
+        robot_status:
+          type: integer
+          enum: [0, 1, 2]
+        is_busy:
+          type: boolean
+
+# Configuration pour Postman
+x-postman-info:
+  name: PiDog Robot API Collection
+  description: |
+    Collection complète pour tester l'API du robot PiDog
+    
+    ## Variables d'environnement recommandées:
+    - `base_url`: http://localhost:5000 ou http://IP_DU_ROBOT:5000
+    
+    ## Tests automatiques inclus:
+    - Vérification des codes de statut
+    - Validation du format JSON
+    - Tests de cohérence des données
+    
+    ## Séquences de test recommandées:
+    1. Vérifier le statut du robot
+    2. Tester les mouvements de base
+    3. Tester le contrôle de la tête
+    4. Exécuter les actions spéciales
+    5. Tester le mode autonome (v2)
+  
+x-postman-collections:
+  - name: "01 - Status & Info"
+    requests:
+      - name: "Get Robot Status"
+        url: "{{base_url}}/status"
+        method: GET
+        tests: |
+          pm.test("Status code is 200", function () {
+              pm.response.to.have.status(200);
+          });
+          
+          pm.test("Response has correct structure", function () {
+              var jsonData = pm.response.json();
+              pm.expect(jsonData).to.have.property('status');
+              pm.expect(jsonData).to.have.property('robot_status');
+              pm.expect(jsonData).to.have.property('is_busy');
+          });
+          
+          pm.test("Robot status is valid", function () {
+              var jsonData = pm.response.json();
+              pm.expect([0, 1, 2]).to.include(jsonData.robot_status);
+          });
+
+      - name: "Get IP Address"
+        url: "{{base_url}}/get_ip"
+        method: GET
+        tests: |
+          pm.test("Status code is 200", function () {
+              pm.response.to.have.status(200);
+          });
+          
+          pm.test("Response contains IP field", function () {
+              var jsonData = pm.response.json();
+              pm.expect(jsonData).to.have.property('ip');
+          });
+
+      - name: "Get Sensor Data"
+        url: "{{base_url}}/sensor_data"
+        method: GET
+        tests: |
+          pm.test("Status code is 200", function () {
+              pm.response.to.have.status(200);
+          });
+          
+          pm.test("Distance is a number or error exists", function () {
+              var jsonData = pm.response.json();
+              if (jsonData.distance !== undefined) {
+                  pm.expect(jsonData.distance).to.be.a('number');
+                  pm.expect(jsonData.distance).to.be.at.least(0);
+              } else {
+                  pm.expect(jsonData).to.have.property('error');
+              }
+          });
+
+  - name: "02 - Movement Commands"
+    requests:
+      - name: "Move Forward (High Intensity)"
+        url: "{{base_url}}/command"
+        method: POST
+        body:
+          mode: raw
+          raw: |
+            {
+              "angle": 0,
+              "intensity": 0.8
+            }
+        tests: |
+          pm.test("Status code is 200", function () {
+              pm.response.to.have.status(200);
+          });
+          
+          pm.test("Command executed successfully", function () {
+              var jsonData = pm.response.json();
+              pm.expect(['success', 'busy']).to.include(jsonData.status);
+          });
+          
+          pm.test("Response contains forward movement", function () {
+              var jsonData = pm.response.json();
+              if (jsonData.status === 'success') {
+                  pm.expect(jsonData.message).to.include('forward');
+              }
+          });
+
+      - name: "Move Backward"
+        url: "{{base_url}}/command"
+        method: POST
+        body:
+          mode: raw
+          raw: |
+            {
+              "angle": 180,
+              "intensity": 0.6
+            }
+        tests: |
+          pm.test("Backward movement executed", function () {
+              var jsonData = pm.response.json();
+              if (jsonData.status === 'success') {
+                  pm.expect(jsonData.message).to.include('backward');
+              }
+          });
+
+      - name: "Turn Right"
+        url: "{{base_url}}/command"
+        method: POST
+        body:
+          mode: raw
+          raw: |
+            {
+              "angle": 90,
+              "intensity": 0.7
+            }
+
+      - name: "Turn Left"
+        url: "{{base_url}}/command"
+        method: POST
+        body:
+          mode: raw
+          raw: |
+            {
+              "angle": 270,
+              "intensity": 0.7
+            }
+
+      - name: "Stop Movement"
+        url: "{{base_url}}/command"
+        method: POST
+        body:
+          mode: raw
+          raw: |
+            {
+              "angle": 0,
+              "intensity": 0
+            }
+        tests: |
+          pm.test("Stop command executed", function () {
+              var jsonData = pm.response.json();
+              if (jsonData.status === 'success') {
+                  pm.expect(jsonData.message).to.include('stop');
+              }
+          });
+
+      - name: "KX/KY Format Test"
+        url: "{{base_url}}/command"
+        method: POST
+        body:
+          mode: raw
+          raw: |
+            {
+              "kx": 0.5,
+              "ky": 0.8
+            }
+        tests: |
+          pm.test("KX/KY format accepted", function () {
+              var jsonData = pm.response.json();
+              pm.expect(['success', 'busy']).to.include(jsonData.status);
+          });
+
+  - name: "03 - Head Control"
+    requests:
+      - name: "Center Head"
+        url: "{{base_url}}/head_control"
+        method: POST
+        body:
+          mode: raw
+          raw: |
+            {
+              "qx": 0,
+              "qy": 0
+            }
+
+      - name: "Look Right"
+        url: "{{base_url}}/head_control"
+        method: POST
+        body:
+          mode: raw
+          raw: |
+            {
+              "qx": 50,
+              "qy": 0
+            }
+
+      - name: "Look Left"
+        url: "{{base_url}}/head_control"
+        method: POST
+        body:
+          mode: raw
+          raw: |
+            {
+              "qx": -50,
+              "qy": 0
+            }
+
+      - name: "Look Up"
+        url: "{{base_url}}/head_control"
+        method: POST
+        body:
+          mode: raw
+          raw: |
+            {
+              "qx": 0,
+              "qy": -30
+            }
+
+      - name: "Look Down"
+        url: "{{base_url}}/head_control"
+        method: POST
+        body:
+          mode: raw
+          raw: |
+            {
+              "qx": 0,
+              "qy": 20
+            }
+
+  - name: "04 - Special Actions"
+    requests:
+      - name: "Sit"
+        url: "{{base_url}}/action"
+        method: POST
+        body:
+          mode: raw
+          raw: |
+            {
+              "action": "sit"
+            }
+        tests: |
+          pm.test("Sit action executed", function () {
+              var jsonData = pm.response.json();
+              pm.expect(jsonData.status).to.eql('success');
+              pm.expect(jsonData.message).to.include('sit');
+          });
+
+      - name: "Stand Up"
+        url: "{{base_url}}/action"
+        method: POST
+        body:
+          mode: raw
+          raw: |
+            {
+              "action": "stand_up"
+            }
+
+      - name: "Lie Down"
+        url: "{{base_url}}/action"
+        method: POST
+        body:
+          mode: raw
+          raw: |
+            {
+              "action": "lie_down"
+            }
+
+      - name: "Wag Tail"
+        url: "{{base_url}}/action"
+        method: POST
+        body:
+          mode: raw
+          raw: |
+            {
+              "action": "wag_tail"
+            }
+
+      - name: "Stretch"
+        url: "{{base_url}}/action"
+        method: POST
+        body:
+          mode: raw
+          raw: |
+            {
+              "action": "stretch"
+            }
+
+      - name: "Shake Head"
+        url: "{{base_url}}/action"
+        method: POST
+        body:
+          mode: raw
+          raw: |
+            {
+              "action": "shake_head"
+            }
+
+      - name: "Invalid Action (Error Test)"
+        url: "{{base_url}}/action"
+        method: POST
+        body:
+          mode: raw
+          raw: |
+            {
+              "action": "invalid_action"
+            }
+        tests: |
+          pm.test("Invalid action returns error", function () {
+              var jsonData = pm.response.json();
+              pm.expect(jsonData.status).to.eql('error');
+          });
+
+  - name: "05 - Autonomous Mode (V2 Only)"
+    requests:
+      - name: "Enable Autonomous Mode"
+        url: "{{base_url}}/autonomous_mode"
+        method: POST
+        body:
+          mode: raw
+          raw: |
+            {
+              "enabled": true
+            }
+        tests: |
+          pm.test("Autonomous mode enabled", function () {
+              var jsonData = pm.response.json();
+              pm.expect(jsonData.enabled).to.be.true;
+          });
+
+      - name: "Disable Autonomous Mode"
+        url: "{{base_url}}/autonomous_mode"
+        method: POST
+        body:
+          mode: raw
+          raw: |
+            {
+              "enabled": false
+            }
+        tests: |
+          pm.test("Autonomous mode disabled", function () {
+              var jsonData = pm.response.json();
+              pm.expect(jsonData.enabled).to.be.false;
+          });
+
+  - name: "06 - Error Handling & Edge Cases"
+    requests:
+      - name: "Invalid Movement Data"
+        url: "{{base_url}}/command"
+        method: POST
+        body:
+          mode: raw
+          raw: |
+            {
+              "invalid": "data"
+            }
+        tests: |
+          pm.test("Invalid data returns error", function () {
+              var jsonData = pm.response.json();
+              pm.expect(jsonData.status).to.eql('error');
+          });
+
+      - name: "Extreme Head Values"
+        url: "{{base_url}}/head_control"
+        method: POST
+        body:
+          mode: raw
+          raw: |
+            {
+              "qx": 150,
+              "qy": 150
+            }
+        tests: |
+          pm.test("Extreme values handled gracefully", function () {
+              pm.response.to.have.status(200);
+          });
+
+      - name: "Missing Required Fields"
+        url: "{{base_url}}/action"
+        method: POST
+        body:
+          mode: raw
+          raw: |
+            {}
+        tests: |
+          pm.test("Missing fields return error", function () {
+              var jsonData = pm.response.json();
+              pm.expect(jsonData.status).to.eql('error');
+          });
+
+# Variables d'environnement Postman
+x-postman-environments:
+  - name: "PiDog Local"
+    values:
+      - key: "base_url"
+        value: "http://localhost:5000"
+        enabled: true
+      - key: "robot_ip"
+        value: "192.168.1.100"
+        enabled: false
+  
+  - name: "PiDog Network"
+    values:
+      - key: "base_url"
+        value: "http://{{robot_ip}}:5000"
+        enabled: true
+      - key: "robot_ip"
+        value: "192.168.1.100"
+        enabled: true
