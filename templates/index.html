@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contrôleur PACO - Accueil</title>
+    <title>Contrôleur RICO-X1 - Accueil</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <style>
@@ -331,13 +331,13 @@
         
         <div class="ip-config">
             <span class="ip-status">IP Robot:</span>
-            <input type="text" class="ip-input" id="robot-ip" value="localhost" placeholder="192.168.1.100">
+            <input type="text" class="ip-input" id="robot-ip" placeholder="Entrez l'IP du robot">
             <button class="connect-btn" onclick="connectRobot()">Connecter</button>
         </div>
     </div>
 
     <div class="controller" id="controller">
-        <h1><i class="fa-solid fa-dog"></i> PACO Contrôle Simple</h1>
+        <h1><i class="fa-solid fa-dog"></i> RICO-X1 Contrôle Simple</h1>
         
         <div class="button-panel">
             <button class="ctrl-btn" id="btn-forward"><i class="fa-solid fa-arrow-up"></i> Avancer</button>
@@ -381,7 +381,7 @@
 
     <script>
         // ===== CONFIGURATION IP =====
-        let ROBOT_BASE_URL = 'http://localhost:5000';
+        let ROBOT_BASE_URL = '';
         
         function connectRobot() {
             const ipInput = document.getElementById('robot-ip');
@@ -407,10 +407,10 @@
         function switchInterface(type) {
             if (type === 'simple') {
                 alert('Redirection vers l\'interface simple (joystick unique)');
-                // window.location.href = 'simple.html';
+                window.location.href = 'simple.html';
             } else if (type === 'advanced') {
                 alert('Redirection vers l\'interface avancée (double joystick)');
-                // window.location.href = 'advanced.html';
+                window.location.href = 'advanced.html';
             }
             // 'home' = page actuelle
         }

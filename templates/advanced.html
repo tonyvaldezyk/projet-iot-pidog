@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PACO Controller - Mode Autonome Corrigé</title>
+    <title>RICO-X1 Controller - Mode Autonome Corrigé</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <style>
@@ -436,7 +436,7 @@
         
         <div class="ip-config">
             <span class="ip-status">IP Robot:</span>
-            <input type="text" class="ip-input" id="robot-ip" value="localhost" placeholder="192.168.1.100">
+            <input type="text" class="ip-input" id="robot-ip" placeholder="Entrez l'IP du robot">
             <button class="connect-btn" onclick="connectRobot()">Connecter</button>
         </div>
     </div>
@@ -447,7 +447,7 @@
             <span id="connection-text">Connexion...</span>
         </div>
 
-        <div class="header"><i class="fa-solid fa-dog"></i> PACO CONTROLLER</div>
+        <div class="header"><i class="fa-solid fa-dog"></i> RICO-X1 CONTROLLER</div>
 
         <div class="autonomous-panel" id="autonomous-panel">
             <label>
@@ -529,7 +529,7 @@
 
     <script>
         // ===== CONFIGURATION IP =====
-        let ROBOT_BASE_URL = 'http://localhost:5000';
+        let ROBOT_BASE_URL = '';
         
         function connectRobot() {
             const ipInput = document.getElementById('robot-ip');
@@ -558,10 +558,13 @@
             // Pour cette démo, on affiche juste un message
             if (type === 'home') {
                 alert('Redirection vers l\'interface d\'accueil (boutons simples)');
-                // window.location.href = 'index.html';
+                window.location.href = 'index.html';
             } else if (type === 'simple') {
                 alert('Redirection vers l\'interface simple (joystick unique)');
-                // window.location.href = 'simple.html';
+                window.location.href = 'simple.html';
+            } else if (type === 'vocal') {
+                alert('Redirection vers l\'interface vocal');
+                window.location.href = 'vocal.html';
             }
             // 'advanced' = page actuelle
         }
@@ -874,9 +877,9 @@
             let commandTimeout = null; // Timeout local pour debouncing
 
             function setKnobPosition(x, y) {
-                knob.style.left = `${x}px`;
-                knob.style.top = `${y}px`;
-            }
+            knob.style.left = `${x}px`;
+            knob.style.top = `${y}px`;
+        }
 
             function handleMove(clientX, clientY) {
                 if (!dragging || state.autonomousMode) return;
@@ -999,7 +1002,7 @@
             updateInterface();
             updateStatus();
             
-            console.log('🐕 PACO Controller Advanced - Initialisé');
+            console.log('🐕 RICO-X1 Controller Advanced - Initialisé');
         }
 
         document.addEventListener('DOMContentLoaded', init);

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contrôleur PACO - Simple</title>
+    <title>Contrôleur RICO-X1 - Simple</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <style>
@@ -407,26 +407,25 @@
     <!-- Navigation Header -->
     <div class="nav-header">
         <div class="nav-buttons">
-            <a href="/" class="nav-btn">🏠 Basic</a>
-            <a href="/simple" class="nav-btn active">🎮 Simple</a>
-            <a href="/advanced" class="nav-btn">⚡ Advanced</a>
-            <a href="/vocal" class="nav-btn">🎤 Vocal</a>
+            <a href="#" class="nav-btn" onclick="switchInterface('home')"><i class='fa-solid fa-house'></i> Accueil</a>
+            <a href="#" class="nav-btn active" onclick="switchInterface('simple')"><i class='fa-solid fa-gamepad'></i> Simple</a>
+            <a href="#" class="nav-btn" onclick="switchInterface('vocal')"><i class='fa-solid fa-microphone'></i> Mode vocal</a>
+            <a href="#" class="nav-btn" onclick="switchInterface('advanced')"><i class='fa-solid fa-bolt'></i> Avancé</a>
         </div>
-        
         <div class="ip-config">
             <span class="ip-status">IP Robot:</span>
-            <input type="text" class="ip-input" id="robot-ip" value="localhost:5000" placeholder="192.168.1.100:5000">
+            <input type="text" class="ip-input" id="robot-ip" placeholder="Entrez l'IP du robot">
             <button class="connect-btn" onclick="connectRobot()">Connecter</button>
         </div>
     </div>
 
     <div class="controller" id="controller">
         <div class="connection-indicator">
-            <div class="connection-dot" id="connection-dot"></div>
+            <div class="connection-dot" id="connection-dot"></div>  
             <span id="connection-status">Déconnecté</span>
         </div>
 
-        <h1><i class="fa-solid fa-dog"></i> PACO Controller</h1>
+        <h1><i class="fa-solid fa-dog"></i> RICO-X1 Controller</h1>
         
         <div class="joystick-container" id="joystick">
             <div class="joystick-base"></div>
@@ -439,7 +438,7 @@
                 <label>
                     <input type="checkbox" id="autonomous-switch" style="width:22px;height:22px;accent-color:#6366f1;">
                     Mode autonome
-                </label>
+            </label>
                 <span class="autonomous-status" id="autonomous-status">OFF</span>
                 <span class="autonomous-warning">⚠️ Contrôles désactivés</span>
             </div>
@@ -742,9 +741,9 @@
         // ===== EVENT LISTENERS =====
         knob.addEventListener('mousedown', function(e) {
             if (!autonomousMode) {
-                dragging = true;
-                knob.classList.add('active');
-                e.preventDefault();
+            dragging = true;
+            knob.classList.add('active');
+            e.preventDefault();
             }
         });
 
@@ -765,9 +764,9 @@
         // Touch events
         knob.addEventListener('touchstart', function(e) {
             if (!autonomousMode) {
-                dragging = true;
-                knob.classList.add('active');
-                e.preventDefault();
+            dragging = true;
+            knob.classList.add('active');
+            e.preventDefault();
             }
         });
 
@@ -824,7 +823,7 @@
             connectRobot();
         }
         
-        console.log('🐕 PACO Controller Simple Flask - Initialisé');
+        console.log('🐕 RICO-X1 Controller Simple Flask - Initialisé');
 
         async function toggleAutonomousMode() {
             if (state.isTransitioning) return;
@@ -877,6 +876,23 @@
                 return;
             }
             // ... reste inchangé ...
+        }
+
+        function switchInterface(type) {
+            if (type === 'home') {
+                alert('Redirection vers l\'interface d\'accueil (boutons simples)');
+                window.location.href = 'index.html';
+            } else if (type === 'simple') {
+                alert('Redirection vers l\'interface simple (joystick unique)');
+                window.location.href = 'simple.html';
+            } else if (type === 'advanced') {
+                alert('Redirection vers l\'interface avancée (double joystick)');
+                window.location.href = 'advanced.html';
+            } else if (type === 'vocal') {
+                alert('Redirection vers le mode vocal');
+                window.location.href = 'vocal.html';
+            }
+            // 'simple' = page actuelle
         }
     </script>
 </body>

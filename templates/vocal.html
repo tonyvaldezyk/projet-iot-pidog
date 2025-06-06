@@ -4,13 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dog Control Voice</title>
-  <link rel="stylesheet" href="Assets/styles/base.css">
-
-
-
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
   <style>
-
-
     body {
         margin: 0;
         padding: 0;
@@ -20,117 +15,224 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        height: 100vh;
+        min-height: 100vh;
+        padding: 20px 0;
       }
       
       #app {
         text-align: center;
         width: 90%;
         max-width: 400px;
+        margin-top: 80px; /* Espacement pour la navigation */
       }
       
       h1 {
         margin-bottom: 20px;
       }
-    
-      /* Switcher container */
-        
-      .live-analyse {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 10px;
-        margin-top: 20px;
-      }
-    
-      .live-title {
-        font-size: 18px;
-        font-weight: bold;
-      }
-    
-    
-      /* Switcher styles */
-    .switch {
-        position: relative;
-        display: inline-block;
-        width: 50px;
-        height: 25px;
-      }
-      
-      .switch input {
-        opacity: 0;
-        width: 0;
-        height: 0;
-      }
-      
-      .slider {
-        position: absolute;
-        cursor: pointer;
+
+      /* Navigation Header */
+      .nav-header {
+        position: fixed;
         top: 0;
         left: 0;
         right: 0;
-        bottom: 0;
-        background: linear-gradient(135deg, #ff0066, #ff4d6d);
-        border-radius: 25px;
-        transition: 0.4s;
+        height: 70px;
+        background: rgba(22, 33, 62, 0.95);
+        backdrop-filter: blur(10px);
+        border-bottom: 2px solid #0f3460;
+        z-index: 1000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        box-shadow: 0 2px 20px rgba(0, 242, 254, 0.1);
       }
-      
-      .slider:before {
+
+      .nav-container {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+        padding: 0 20px;
+      }
+
+      .nav-button {
+        background: linear-gradient(135deg, #0f3460, #16213e);
+        border: 2px solid #4facfe;
+        border-radius: 50px;
+        padding: 12px 20px;
+        color: white;
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: bold;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+        min-width: 120px;
+        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+
+      .nav-button:before {
+        content: '';
         position: absolute;
-        content: "";
-        height: 18px;
-        width: 18px;
-        left: 4px;
-        bottom: 3px;
-        background-color: white;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(79, 172, 254, 0.2), transparent);
+        transition: left 0.5s;
+      }
+
+      .nav-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 242, 254, 0.3);
+        border-color: #00f2fe;
+      }
+
+      .nav-button:hover:before {
+        left: 100%;
+      }
+
+      .nav-button:active {
+        transform: translateY(0);
+        box-shadow: 0 4px 15px rgba(0, 242, 254, 0.2);
+      }
+
+      .nav-icon {
+        font-size: 16px;
+      }
+
+      /* Configuration Section */
+      .config-section {
+        background: rgba(15, 52, 96, 0.3);
+        border-radius: 15px;
+        padding: 20px;
+        margin: 20px 0;
+        border: 2px solid #4facfe;
+      }
+
+      .config-title {
+        font-size: 18px;
+        color: #4facfe;
+        font-weight: bold;
+        margin-bottom: 15px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .config-group {
+        margin-bottom: 15px;
+        text-align: left;
+      }
+
+      .config-label {
+        display: block;
+        font-size: 14px;
+        color: #4facfe;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+
+      .config-input {
+        width: 100%;
+        padding: 10px;
+        border: 2px solid #0f3460;
+        border-radius: 8px;
+        background: #16213e;
+        color: white;
+        font-size: 14px;
+        box-sizing: border-box;
+      }
+
+      .config-input:focus {
+        outline: none;
+        border-color: #00f2fe;
+        box-shadow: 0 0 10px rgba(0, 242, 254, 0.3);
+      }
+
+      .config-buttons {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        margin-top: 15px;
+      }
+
+      .config-btn {
+        padding: 8px 15px;
+        border: none;
+        border-radius: 20px;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      .save-btn {
+        background: #00f2fe;
+        color: white;
+      }
+
+      .save-btn:hover {
+        background: #4facfe;
+        transform: scale(1.05);
+      }
+
+      .reset-btn {
+        background: #ff0066;
+        color: white;
+      }
+
+      .reset-btn:hover {
+        background: #ff4d6d;
+        transform: scale(1.05);
+      }
+
+      .config-status {
+        margin-top: 10px;
+        padding: 8px;
+        border-radius: 5px;
+        font-size: 12px;
+        display: none;
+      }
+
+      .config-status.success {
+        background: rgba(0, 242, 254, 0.2);
+        color: #00f2fe;
+        border: 1px solid #00f2fe;
+      }
+
+      .config-status.error {
+        background: rgba(255, 6, 102, 0.2);
+        color: #ff0066;
+        border: 1px solid #ff0066;
+      }
+
+      /* Toggle Configuration Button */
+      .toggle-config {
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        background: linear-gradient(135deg, #4facfe, #00f2fe);
+        color: white;
+        border: none;
         border-radius: 50%;
-        transition: 0.4s;
+        width: 50px;
+        height: 50px;
+        cursor: pointer;
+        font-size: 20px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(79, 172, 254, 0.3);
+        z-index: 999;
       }
-      
-      input:checked + .slider {
-        background: linear-gradient(135deg, #00f2fe, #4facfe);
+
+      .toggle-config:hover {
+        transform: scale(1.1) rotate(90deg);
+        box-shadow: 0 6px 25px rgba(0, 242, 254, 0.5);
       }
-      
-      input:checked + .slider:before {
-        transform: translateX(24px);
-      }
-      
-      /* Responsive styles */
-      @media (max-width: 600px) {
-        .live-title {
-          font-size: 16px;
-        }
-        .switch {
-          width: 40px;
-          height: 20px;
-        }
-        .slider:before {
-          height: 14px;
-          width: 14px;
-          bottom: 3px;
-          left: 3px;
-        }
-      }
-      
-      
-    
-      /* ------ version 2 ------
-      .recording-circle {
-        margin: 20px auto;
-        width: 150px;
-        height: 150px;
-        border-radius: 50%;
-        background: radial-gradient(circle, #0f3460, #16213e);
-        box-shadow: 0 0 25px 5px #0f3460;
-        animation: pulse 2s infinite;
-      }
-      
-      .recording-circle.active {
-        animation: sound-wave 1s infinite;
-      }
-        */
-    
-    
     
       .recording-circle {
         margin: 20px auto;
@@ -139,62 +241,41 @@
         border-radius: 50%;
         background: radial-gradient(circle, #0f3460, #16213e);
         box-shadow: 0 0 25px 5px #0f3460;
-        transform: scale(1); /* État de base */
-        transition: transform 0.1s ease-in-out; /* Lissage des pulsations */
+        transform: scale(1);
+        transition: transform 0.1s ease-in-out;
       }
       
       .recording-circle.active {
-        /* Supprimez l'animation si elle interfère */
-        /* animation: none; */
+         animation: sound-wave 1s infinite; 
       }
     
-    
       .highlight {
-        background-color: rgba(255, 255, 0, 0.3); /* Fond jaune semi-transparent */
-        border: 2px solid yellow; /* Bordure jaune */
+        background-color: rgba(255, 255, 0, 0.3);
+        border: 2px solid yellow;
         transition: all 0.3s ease;
       }
     
-    
-    
-    
-    
-      
-      /* Style pour le container du loader, optionnel pour centrer l'animation */
-    #loader-container {
-        display: none; /* Masqué par défaut */
+      #loader-container {
+        display: none;
         position: relative;
         top: 50%;
         left: 50%;
         transform: translate(-10%, 2%);
-        z-index: 9999; /* S'assurer qu'il soit au-dessus du reste */
+        z-index: 9999;
       }
       
-      /* Style pour le loader (spinner) */
       .loader {
-        border: 8px solid #f3f3f3; /* Couleur de fond de la bordure */
-        border-top: 8px solid #3498db; /* Couleur de la partie animée */
+        border: 8px solid #f3f3f3;
+        border-top: 8px solid #3498db;
         border-radius: 50%;
         width: 60px;
         height: 60px;
         animation: spin 1s linear infinite;
       }
       
-      /* Animation de rotation */
       @keyframes spin {
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
-      }
-    
-      
-      
-      @keyframes pulse {
-        0%, 100% {
-          box-shadow: 0 0 25px 5px #0f3460;
-        }
-        50% {
-          box-shadow: 0 0 35px 15px #0f3460;
-        }
       }
       
       @keyframes sound-wave {
@@ -206,21 +287,6 @@
           transform: scale(1.2);
           box-shadow: 0 0 40px 15px #00f2fe, 0 0 70px 35px #16213e;
         }
-      }
-      
-      .emotion-scores {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 10px;
-        margin: 20px 0;
-      }
-      
-      .emotion {
-        display: flex;
-        justify-content: space-between;
-        padding: 10px;
-        background: #0f3460;
-        border-radius: 10px;
       }
       
       .controls button {
@@ -258,20 +324,18 @@
         cursor: not-allowed;
       }
     
-      /* Footer styles */
-    /* Footer styles */
-    .footer {
-        position: fixed; /* Fixe le footer en bas */
-        bottom: 0; /* Position à 0px du bas */
-        left: 0; /* S'assure qu'il commence à gauche */
-        width: 100%; /* S'étend sur toute la largeur de l'écran */
-        background: #16213e; /* Même fond que le reste */
+      .footer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        background: #16213e;
         color: white;
-        text-align: center; /* Centre le texte horizontalement */
+        text-align: center;
         padding: 10px 0;
         font-size: 14px;
-        border-top: 1px solid #0f3460; /* Ligne au-dessus pour séparer */
-        z-index: 10; /* Toujours au-dessus des autres éléments */
+        border-top: 1px solid #0f3460;
+        z-index: 10;
       }
       
       .footer p {
@@ -280,15 +344,6 @@
         font-weight: bold;
       }
     
-    
-    
-    
-    
-    
-    
-      
-    
-     /* Action Result Display */
      .action-result {
       margin: 20px 0;
       padding: 20px;
@@ -346,33 +401,171 @@
       color: #ffffff;
       font-style: italic;
     }
-    
 
+    .error-message {
+      background: #ff0066;
+      color: white;
+      padding: 15px;
+      border-radius: 10px;
+      margin: 20px 0;
+      text-align: center;
+    }
 
+    .warning-message {
+      background: #ff9500;
+      color: white;
+      padding: 15px;
+      border-radius: 10px;
+      margin: 20px 0;
+      text-align: center;
+    }
+
+    /* Responsive design */
+    @media (max-width: 768px) {
+      .nav-container {
+        gap: 8px;
+        padding: 0 10px;
+      }
+
+      .nav-button {
+        min-width: 80px;
+        padding: 10px 15px;
+        font-size: 12px;
+      }
+
+      .nav-icon {
+        font-size: 14px;
+      }
+
+      .toggle-config {
+        top: 80px;
+        right: 10px;
+        width: 45px;
+        height: 45px;
+        font-size: 18px;
+      }
+      
+      #app {
+        margin-top: 90px;
+      }
+      
+      .config-section {
+        padding: 15px;
+      }
+      
+      .config-buttons {
+        flex-direction: column;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .nav-container {
+        flex-wrap: wrap;
+        gap: 5px;
+      }
+
+      .nav-button {
+        min-width: 70px;
+        padding: 8px 12px;
+        font-size: 11px;
+      }
+
+      .nav-header {
+        height: 80px;
+      }
+
+      #app {
+        margin-top: 100px;
+      }
+    }
+
+    /* Animation d'apparition pour les boutons de navigation */
+    @keyframes fadeInDown {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .nav-button {
+      animation: fadeInDown 0.6s ease-out forwards;
+    }
+
+    .nav-button:nth-child(1) { animation-delay: 0.1s; }
+    .nav-button:nth-child(2) { animation-delay: 0.2s; }
+    .nav-button:nth-child(3) { animation-delay: 0.3s; }
+    .nav-button:nth-child(4) { animation-delay: 0.4s; }
   </style>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 </head>
 <body>
+  <!-- Navigation Header -->
+  <nav class="nav-header">
+    <div class="nav-container">
+      <a href="#" class="nav-button" onclick="switchInterface('index')">
+        <i class="fas fa-home nav-icon"></i>
+        <span>Accueil</span>
+      </a>
+      <a href="#" class="nav-button" onclick="switchInterface('simple')">
+        <i class="fas fa-gamepad nav-icon"></i>
+        <span>Simple</span>
+      </a>
+      <a href="#" class="nav-button" onclick="switchInterface('vocal')">
+        <i class="fas fa-microphone nav-icon"></i>
+        <span>Mode vocal</span>
+      </a>
+      <a href="#" class="nav-button" onclick="switchInterface('advanced')">
+        <i class="fas fa-sliders-h nav-icon"></i>
+        <span>Avancé</span>
+      </a>
+    </div>
+  </nav>
+
+  <!-- Toggle Configuration Button -->
+  <button class="toggle-config" id="toggle-config-btn" title="Configuration"><i class="fas fa-cog"></i></button>
+
   <div id="app">
     <h1>Dog Control Voice</h1>
 
+    <!-- Configuration Section -->
+    <div class="config-section" id="config-section" style="display: none;">
+      <div class="config-title">Configuration Serveurs</div>
+      
+      <div class="config-group">
+        <label class="config-label" for="robot-ip">IP Serveur Robot:</label>
+        <input 
+          type="text" 
+          id="robot-ip" 
+          class="config-input" 
+          placeholder="ex: 192.168.1.100:5000"
+          value="192.168.106.1:5000"
+        >
+      </div>
+
+      <div class="config-group">
+        <label class="config-label" for="voice-ip">IP Socket Vocal:</label>
+        <input 
+          type="text" 
+          id="voice-ip" 
+          class="config-input" 
+          placeholder="ex: 192.168.1.100:8000"
+          value="172.20.10.8:8000"
+        >
+      </div>
+
+      <div class="config-buttons">
+        <button class="config-btn save-btn" id="save-config">Sauvegarder</button>
+        <button class="config-btn reset-btn" id="reset-config">Reset</button>
+      </div>
+
+      <div class="config-status" id="config-status"></div>
+    </div>
+
     <br/>
     
-
     <div class="recording-circle"></div>
 
     <br/>
@@ -384,32 +577,12 @@
 
     <br/>
 
-    <!-- Active Live Analyse Section 
-    <div class="live-analyse">
-      <span class="live-title">Active Live Analyse</span>
-      <label class="switch">
-        <input type="checkbox" id="live-switch">
-        <span class="slider"></span>
-      </label>
-    </div>
-
-    <br/> -->
-
     <div id="loader-container">
-        <h4 style="transform: translate(-38%, 2%);">Scan Emotion En Cour...</h4>
-        <div id="loader" class="loader"></div>
-      </div>
-
-      <br/>
-
-
-
-
-      
-    <div id="loader-container">
-        <h4>Analyse en cours...</h4>
+        <h4 style="transform: translate(-38%, 2%);">Analyse en cours...</h4>
         <div id="loader" class="loader"></div>
     </div>
+
+    <div id="error-container"></div>
 
     <!-- Transcription Display -->
     <div class="transcription-display" id="transcription-container" style="display: none;">
@@ -422,543 +595,470 @@
       <div class="action-label">Action Détectée</div>
       <div class="action-text" id="action-display">En attente...</div>
     </div>
-
-
-    <!-- 
-    <div class="emotion-scores">
-      <div class="emotion" id="score-joie-component">
-        <span>Joie</span>
-        <span class="score" id="score-joie">0 / 5</span> 
-      </div>
-      <div class="emotion" id="score-amour-component" >
-        <span>Amour</span>
-        <span class="score" id="score-amour">0 / 5</span>
-      </div>
-      <div class="emotion" id="score-tristesse-component">
-        <span>Tristesse</span>
-        <span class="score" id="score-tristesse">0 / 5</span>
-      </div>
-      <div class="emotion" id="score-surprise-component">
-        <span>Surprise</span>
-        <span class="score" id="score-surprise">0 / 5</span>
-      </div>
-      <div class="emotion" id="score-peur-component">
-        <span>Peur</span>
-        <span class="score" id="score-peur">0 / 5</span>
-      </div>
-      <div class="emotion" id="score-colere-component">
-        <span>Colère</span>
-        <span class="score" id="score-colere">0 / 5</span>
-      </div>
-    </div>
-    --> 
-
-
-
-   
   </div>
 
-
-  
   <footer class="footer">
     <p>&copy; 2025 @hetic</p>
   </footer>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   <script>
+    // Configuration par défaut
+    let CONFIG = {
+      robotIp: "192.168.106.1:5000",
+      voiceIp: "172.20.10.8:8000"
+    };
 
+    // Variables globales
+    let isRecording = false;
+    let audioContext = null;
+    let socket = null;
+    let mediaRecorder = null;
+    let audioStream = null;
+    let microphonePermissionGranted = false;
 
-/*
-Action a implementer  par vocal :
- - 
- - 
- - ASSIT
- - DEBOUT
- - REMUER LA QUEUE
- - MARCHE AVANT / AVANCER
- - MARCHE ARRIERE / RECULER
- - ARRET
- - SE GRATTER
- - SUIVRE
+    const loaderContainer = document.getElementById("loader-container");
+    const actionDisplay = document.getElementById('action-display');
+    const transcriptionContainer = document.getElementById('transcription-container');
+    const transcriptionText = document.getElementById('transcription-text');
+    const errorContainer = document.getElementById('error-container');
+    const configSection = document.getElementById('config-section');
+    const configStatus = document.getElementById('config-status');
 
-
-*/
-
-//let url_server_control = "http://127.0.0.1:5000";
-//let url_server_voice = "http://127.0.0.1:8000";
-//let url_server_websocket = "ws://127.0.0.1:8000/ws";
-
-
-
-
-//let url_server_control = "http://vbrain.local:5000";
-//let url_server_voice = "http://vbrain.local:8000";
-//let url_server_websocket = "ws://vbrain.local:8000/ws";
-
-let url_server_control = "http://192.168.106.1:5000"
-let url_server_voice = "http://192.168.106.1:8000";
-let url_server_websocket = "ws://172.20.10.8:8000/ws";
-
-
-
-let isRecording = false;
-let audioContext = null;
-let socket = null;
-let liveStreamActive = false;
-
-let cibles_component_top_sensation = null
-
-const loaderContainer = document.getElementById("loader-container");
-
-const actionDisplay = document.getElementById('action-display');
-const transcriptionContainer = document.getElementById('transcription-container');
-const transcriptionText = document.getElementById('transcription-text');
-
-
-// Afficher l'action avec style
-function displayAction(action) {
-  const actionElement = document.getElementById('action-display');
-  
-  if (action === 'none' || !action) {
-    actionElement.textContent = 'Aucune action détectée';
-    actionElement.className = 'action-text none';
-  } else {
-    actionElement.textContent = action;
-    actionElement.className = 'action-text';
-  }
-}
-
-function hideLoader() {
-  loaderContainer.style.display = 'none';
-}
-
-
-
-
-
-
-
-
-
-
-//--------- ACTIONS CONTROL ---------
-
-
-
-
-
-function sendAction(action) {
-  fetch(url_server_control+"/action", {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: action })
-  })
-  .then(response => response.json())
-  .then(data => {
-      document.getElementById('status').textContent = 
-          data.status === 'success' ? `✅ ${action}` : `❌ Erreur`;
-  })
-  .catch(error => {
-      document.getElementById('status').textContent = '🔴 Erreur action';
-  });
-}
-
-
-function toggleFaceDetection() {
-  faceDetectionEnabled = !faceDetectionEnabled;
-  //const toggle = document.getElementById('face-toggle');
-  
-  /*
-  if (faceDetectionEnabled) {
-      toggle.classList.add('active');
-      toggle.textContent = '👁️ Détection Visage: ON';
-  } else {
-      toggle.classList.remove('active');
-      toggle.textContent = '👁️ Détection Visage: OFF';
-  }
-      */
-
-  fetch(url_server_control+"/face_detection", {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: faceDetectionEnabled })
-  })
-  .catch(error => console.log('Face detection control not implemented yet'));
-}
-
-
-function sendDirection(direction) {
-  let kx = 0, ky = 0;
-  const max = 1.0;
-  if (direction === 'forward') ky = max;
-  else if (direction === 'backward') ky = -max;
-  else if (direction === 'left') kx = -max;
-  else if (direction === 'right') kx = max;
-  // stop: kx=0, ky=0
-  fetch('/command', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kx: kx, ky: ky })
-  })
-  .then(response => response.json())
-  .then(data => {
-      if (data.status === 'success') {
-          statusDiv.textContent = `✅ ${data.message}`;
-      } else if (data.status === 'busy') {
-          statusDiv.textContent = '⏳ Robot occupé, réessai...';
-      } else {
-          statusDiv.textContent = `❌ Erreur: ${data.message}`;
+    // Fonctions de configuration
+    function loadConfig() {
+      const savedConfig = localStorage.getItem('dogControlConfig');
+      if (savedConfig) {
+        CONFIG = JSON.parse(savedConfig);
+        document.getElementById('robot-ip').value = CONFIG.robotIp;
+        document.getElementById('voice-ip').value = CONFIG.voiceIp;
       }
-  })
-  .catch((error) => {
-      statusDiv.textContent = '🔴 Erreur de communication';
-  });
-}
-
-
-
-//--------- END ACTIONS CONTROL ---------
-//----------------------------------------
-
-
-// Initialisation des WebSocket
-function initWebSocket() {
-  //socket = new WebSocket("ws://127.0.0.1:8000/ws/audio"); // Remplacez avec votre URL WebSocket
-  socket = new WebSocket(url_server_websocket+"/audio");
-
-  socket.onmessage = (event) => {
-    const data_parse = JSON.parse(event.data);
-    
-
-    loaderContainer.style.display = "none";
-
-
-    /*
-    document.getElementById("score-joie-component").classList.remove("highlight");
-    document.getElementById("score-amour-component").classList.remove("highlight");
-    document.getElementById("score-tristesse-component").classList.remove("highlight");
-    document.getElementById("score-surprise-component").classList.remove("highlight");
-    document.getElementById("score-peur-component").classList.remove("highlight");
-    document.getElementById("score-colere-component").classList.remove("highlight");
-    */
-    
-
-    // Verification du message serveur 
-    if (data_parse.typeResponse === "alert") {
-      console.log("\n \n Message recue du serveur  :: ");
-      console.log(data_parse.data);
-      
-    }else if (data_parse.typeResponse === "resultTranscript"){
-        
-        //console.log("Message du serveur top_sensation : data_parse.top_sensation :: ", data_parse.top_sensation);
-        console.log("Message du serveur : data_parse :: ", data_parse);
-
-        hideLoader();
-          
-          // Afficher la transcription
-          if (data_parse.data.text_transcript) {
-            transcriptionText.textContent = data_parse.data.text_transcript;
-            transcriptionContainer.style.display = 'block';
-          }
-          
-          // Afficher l'action détectée
-          const action = data_parse.data.action_do || 'none';
-          displayAction(action);
-
-
-          if (action === "coucher") {
-            sendAction("lie_down");
-          }
-
-          if (action === "assis") {
-            sendAction("sit");
-          }
-
-          if (action === "debout") {
-            sendAction("stand_up");
-          }
-
-          if (action === "avance") {
-            sendDirection("forward");
-          }
-
-          if (action === "rentre_derriere") {
-            sendDirection("backward");
-          }
-
-          if (action === "remuer_queue") {
-            sendAction("wag_tail");
-          }
-
-          if (action === "tourne_droite") {
-            sendDirection("right");
-          }
-
-          if (action === "tourne_gauche") {
-            sendDirection("left");
-          }
-
-          if (action === "arreter") {
-            sendDirection("stop");
-          }
-
-          if (action === "aboyer") {
-            sendAction("bark");
-          }
-
-          if (action === "saluer") {
-            sendAction("scratch");
-          }
-
-         
-
-
-
-
-
-
-
-        /*
-        document.getElementById("score-colere").textContent = `${data_score_sensational.colere} / 5`;
-        document.getElementById("score-peur").textContent = `${data_score_sensational.peur} / 5`;
-        document.getElementById("score-joie").textContent = `${data_score_sensational.joie} / 5`;
-        document.getElementById("score-amour").textContent = `${data_score_sensational.amour} / 5`;
-        document.getElementById("score-tristesse").textContent = `${data_score_sensational.tristesse} / 5`;
-        document.getElementById("score-surprise").textContent = `${data_score_sensational.surprise} / 5`;
-        
-
-        let topsensation = "score-"+data_parse.top_sensation+"-component";
-        cibles_component_top_sensation = document.getElementById(topsensation);
-        if (cibles_component_top_sensation) {
-            // Ajout de la classe pour mettre en surbrillance
-            cibles_component_top_sensation.classList.add("highlight");
-          }
-            */
-        
-    } else{
-        console.log("Message du serveur :", event.data);
- 
+      updateURLs();
     }
 
-   
-  };
+    function saveConfig() {
+      const robotIp = document.getElementById('robot-ip').value.trim();
+      const voiceIp = document.getElementById('voice-ip').value.trim();
 
-  socket.onopen = () => console.log("WebSocket connecté");
-  socket.onclose = () => console.log("WebSocket déconnecté");
-}
-
-
-function init_state() {
-    
-    if (cibles_component_top_sensation) {
-        // Ajout de la classe pour mettre en surbrillance
-        cibles_component_top_sensation.classList.remove("highlight");
+      if (!robotIp || !voiceIp) {
+        showConfigStatus('Veuillez remplir tous les champs', 'error');
+        return;
       }
 
-      /*
-      document.getElementById("score-colere").textContent = `0 / 5`;
-      document.getElementById("score-peur").textContent = `0 / 5`;
-      document.getElementById("score-joie").textContent = `0 / 5`;
-      document.getElementById("score-amour").textContent = `0 / 5`;
-      document.getElementById("score-tristesse").textContent = `0 / 5`;
-      document.getElementById("score-surprise").textContent = `0 / 5`;
-      */
+      // Validation basique des IP
+      if (!isValidIpPort(robotIp) || !isValidIpPort(voiceIp)) {
+        showConfigStatus('Format IP:Port invalide (ex: 192.168.1.100:5000)', 'error');
+        //return;
+      }
 
-      loaderContainer.style.display = "none";
+      CONFIG.robotIp = robotIp;
+      CONFIG.voiceIp = voiceIp;
 
-     
+      localStorage.setItem('dogControlConfig', JSON.stringify(CONFIG));
+      updateURLs();
+      showConfigStatus('Configuration sauvegardée avec succès!', 'success');
+      
+      // Reconnecter le WebSocket si nécessaire
+      if (socket) {
+        socket.close();
+        initWebSocket();
+      }
+    }
 
-}
+    function resetConfig() {
+      CONFIG = {
+        robotIp: "192.168.106.1:5000",
+        voiceIp: "172.20.10.8:8000"
+      };
+      
+      document.getElementById('robot-ip').value = CONFIG.robotIp;
+      document.getElementById('voice-ip').value = CONFIG.voiceIp;
+      
+      localStorage.removeItem('dogControlConfig');
+      updateURLs();
+      showConfigStatus('Configuration remise à zéro', 'success');
+    }
 
+    function isValidIpPort(ipPort) {
+      const regex = /^(\d{1,3}\.){3}\d{1,3}:\d+$/;
+      return regex.test(ipPort);
+    }
 
-// Gestion de l'enregistrement audio
-async function startRecording() {
+    function showConfigStatus(message, type) {
+      configStatus.textContent = message;
+      configStatus.className = `config-status ${type}`;
+      configStatus.style.display = 'block';
+      
+      setTimeout(() => {
+        configStatus.style.display = 'none';
+      }, 3000);
+    }
 
-    // Démarrage WebSocket
-    initWebSocket();
+    function updateURLs() {
+      window.url_server_control = `https://${CONFIG.robotIp}`;
+      window.url_server_voice = `https://${CONFIG.voiceIp}`;
+      window.url_server_websocket = `wss://${CONFIG.voiceIp}/ws`;
+      
+      console.log('URLs mises à jour:', {
+        control: window.url_server_control,
+        voice: window.url_server_voice,
+        websocket: window.url_server_websocket
+      });
+    }
 
+    function toggleConfig() {
+      if (configSection.style.display === 'none') {
+        configSection.style.display = 'block';
+      } else {
+        configSection.style.display = 'none';
+      }
+    }
 
+    // Fonction pour afficher les erreurs
+    function showError(message, isWarning = false) {
+      const errorDiv = document.createElement('div');
+      errorDiv.className = isWarning ? 'warning-message' : 'error-message';
+      errorDiv.innerHTML = message;
+      errorContainer.innerHTML = '';
+      errorContainer.appendChild(errorDiv);
+      
+      setTimeout(() => {
+        if (errorContainer.contains(errorDiv)) {
+          errorContainer.removeChild(errorDiv);
+        }
+      }, 10000);
+    }
 
-  const recordingCircle = document.querySelector(".recording-circle");
-  isRecording = true;
-  recordingCircle.classList.add("active");
+    // Vérifier la compatibilité du navigateur
+    function checkBrowserCompatibility() {
+      if (!navigator.mediaDevices) {
+        showError(`
+          <strong>Erreur de compatibilité :</strong><br>
+          Votre navigateur ne supporte pas l'enregistrement audio ou la page n'est pas servie en HTTPS.<br>
+          <strong>Solutions :</strong><br>
+          • Utilisez HTTPS au lieu de HTTP<br>
+          • Accédez via localhost au lieu de l'adresse IP<br>
+          • Utilisez un navigateur récent (Chrome, Firefox, Safari)
+        `);
+        return false;
+      }
 
-  // Configuration AudioContext
-  audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  const analyser = audioContext.createAnalyser();
-  analyser.fftSize = 256;
+      if (!navigator.mediaDevices.getUserMedia) {
+        showError('Votre navigateur ne supporte pas getUserMedia()');
+        return false;
+      }
 
-  // Récupérer le flux audio
-  audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  const source = audioContext.createMediaStreamSource(audioStream);
-  source.connect(analyser);
+      return true;
+    }
 
-  visualizeAudio(analyser);
+    // Afficher l'action avec style
+    function displayAction(action) {
+      if (action === 'none' || !action) {
+        actionDisplay.textContent = 'Aucune action détectée';
+        actionDisplay.className = 'action-text none';
+      } else {
+        actionDisplay.textContent = action;
+        actionDisplay.className = 'action-text';
+      }
+    }
 
+    function hideLoader() {
+      loaderContainer.style.display = 'none';
+    }
 
+    // Actions de contrôle
+    function sendAction(action) {
+      fetch(window.url_server_control + "/action", {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: action })
+      })
+      .then(response => response.json())
+      .then(data => {
+          console.log(`Action ${action}: ${data.status}`);
+      })
+      .catch(error => {
+          console.error('Erreur action:', error);
+          showError(`Erreur envoi action: ${error.message}`);
+      });
+    }
 
+    function sendDirection(direction) {
+      let kx = 0, ky = 0;
+      const max = 1.0;
+      if (direction === 'forward') ky = max;
+      else if (direction === 'backward') ky = -max;
+      else if (direction === 'left') kx = -max;
+      else if (direction === 'right') kx = max;
+      
+      fetch(window.url_server_control + '/command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kx: kx, ky: ky })
+      })
+      .then(response => response.json())
+      .then(data => {
+          console.log(`Direction ${direction}: ${data.status}`);
+      })
+      .catch((error) => {
+          console.error('Erreur direction:', error);
+          showError(`Erreur direction: ${error.message}`);
+      });
+    }
 
+    // Initialisation des WebSocket
+    function initWebSocket() {
+      try {
+        socket = new WebSocket(window.url_server_websocket + "/audio");
 
-   // Création du MediaRecorder pour envoyer les chunks audio au serveur
-   mediaRecorder = new MediaRecorder(audioStream, { mimeType: 'audio/webm' });
-  
-   // À chaque disponibilité d'un chunk (ici, toutes les 1 seconde), on l'envoie au serveur
-   mediaRecorder.ondataavailable = (event) => {
-     if (event.data && event.data.size > 0 && socket.readyState === WebSocket.OPEN) {
-       // On envoie le chunk en tant que données binaires
-       console.log('donnee envoyer au serveur ::  '+event.data+ '       //  TAILLE :' + event.data.size);
-       socket.send(event.data);
-     }
-   };
-   
-   // Démarrer l'enregistrement avec un intervalle de 1 seconde
-   mediaRecorder.start(1000);
+        socket.onmessage = (event) => {
+          const data_parse = JSON.parse(event.data);
+          
+          loaderContainer.style.display = "none";
 
+          if (data_parse.typeResponse === "alert") {
+            console.log("Message serveur:", data_parse.data);
+            
+          } else if (data_parse.typeResponse === "resultTranscript") {
+            console.log("Résultat transcript:", data_parse);
 
-}
+            hideLoader();
+              
+            // Afficher la transcription
+            if (data_parse.data.text_transcript) {
+              transcriptionText.textContent = data_parse.data.text_transcript;
+              transcriptionContainer.style.display = 'block';
+            }
+            
+            // Afficher l'action détectée
+            const action = data_parse.data.action_do || 'none';
+            displayAction(action);
 
+            // Exécuter l'action correspondante
+            switch(action) {
+              case "coucher": sendAction("lie_down"); break;
+              case "assis": sendAction("sit"); break;
+              case "debout": sendAction("stand_up"); break;
+              case "avance": sendDirection("forward"); break;
+              case "rentre_derriere": sendDirection("backward"); break;
+              case "remuer_queue": sendAction("wag_tail"); break;
+              case "tourne_droite": sendDirection("right"); break;
+              case "tourne_gauche": sendDirection("left"); break;
+              case "arreter": sendDirection("stop"); break;
+              case "aboyer": sendAction("bark"); break;
+              case "saluer": sendAction("scratch"); break;
+            }
+          } else {
+            console.log("Message serveur:", event.data);
+          }
+        };
 
+        socket.onopen = () => {
+          console.log("WebSocket connecté");
+          errorContainer.innerHTML = '';
+        };
+        
+        socket.onclose = () => {
+          console.log("WebSocket déconnecté");
+          showError("WebSocket déconnecté. Vérifiez la configuration.", true);
+        };
 
+        socket.onerror = (error) => {
+          console.error("Erreur WebSocket:", error);
+          showError("Erreur de connexion WebSocket. Vérifiez l'IP du serveur vocal.");
+        };
 
-function stopRecording() {
+      } catch (error) {
+        console.error("Erreur initialisation WebSocket:", error);
+        showError("Impossible de se connecter au serveur WebSocket");
+      }
+    }
 
+    async function checkMicrophonePermission() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(track => track.stop());
+        microphonePermissionGranted = true;
+        return true;
+      } catch (error) {
+        console.error('Erreur lors de la vérification de l\'autorisation du microphone:', error);
+        throw new Error(`Impossible d'accéder au microphone: ${error.message}`);
+        return false;
+      }
+    }
 
-    loaderContainer.style.display = "block";
+    // Gestion de l'enregistrement audio
+    async function startRecording() {
+      saveConfig();
 
+      if (!checkBrowserCompatibility()) {
+        return;
+      }
 
-  const recordingCircle = document.querySelector(".recording-circle");
-  isRecording = false;
-  recordingCircle.classList.remove("active");
+      try {
+        if (!socket || socket.readyState === WebSocket.CLOSED) {
+          initWebSocket();
+        }
 
-    // Arrêter MediaRecorder pour stopper l'envoi de chunks
-    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        const recordingCircle = document.querySelector(".recording-circle");
+        isRecording = true;
+        recordingCircle.classList.add("active");
+
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+
+        try {
+          audioStream = await navigator.mediaDevices.getUserMedia({ 
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              sampleRate: 44100
+            } 
+          });
+          microphonePermissionGranted = true;
+        } catch (micError) {
+          throw new Error(`Impossible d'accéder au microphone: ${micError.message}`);
+        }
+
+        const source = audioContext.createMediaStreamSource(audioStream);
+        source.connect(analyser);
+
+        visualizeAudio(analyser);
+
+        try {
+          mediaRecorder = new MediaRecorder(audioStream, { 
+            mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+          });
+        } catch (recorderError) {
+          throw new Error(`Impossible de créer MediaRecorder: ${recorderError.message}`);
+        }
+        
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data && event.data.size > 0 && socket && socket.readyState === WebSocket.OPEN) {
+            console.log('Données envoyées au serveur - Taille:', event.data.size);
+            socket.send(event.data);
+          }
+        };
+
+        mediaRecorder.onerror = (event) => {
+          console.error('Erreur MediaRecorder:', event.error);
+          showError('Erreur lors de l\'enregistrement audio');
+          stopRecording();
+        };
+        
+        mediaRecorder.start(1000);
+        errorContainer.innerHTML = '';
+
+      } catch (error) {
+        console.error('Erreur startRecording:', error);
+        showError(`Erreur lors du démarrage de l'enregistrement: ${error.message}`);
+        
+        isRecording = false;
+        const recordingCircle = document.querySelector(".recording-circle");
+        recordingCircle.classList.remove("active");
+        
+        document.getElementById("start-btn").disabled = false;
+        document.getElementById("stop-btn").disabled = true;
+      }
+    }
+
+    function stopRecording() {
+      loaderContainer.style.display = "block";
+
+      const recordingCircle = document.querySelector(".recording-circle");
+      isRecording = false;
+      recordingCircle.classList.remove("active");
+
+      if (mediaRecorder && mediaRecorder.state !== "inactive") {
         mediaRecorder.stop();
       }
 
-  if (audioContext) {
-    audioContext.close();
-    audioContext = null;
-  }
+      if (audioContext) {
+        audioContext.close();
+        audioContext = null;
+      }
 
-  // Envoi d'une requête au serveur WebSocket
-  if (socket && socket.readyState === WebSocket.OPEN) {
-    socket.send(JSON.stringify({ action: "stop-recording" }));
-  }
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ action: "stop-recording" }));
+      }
 
-   // Libérer le micro
-   if (audioStream) {
-    audioStream.getTracks().forEach((track) => track.stop());
-    audioStream = null;
+      if (audioStream) {
+        audioStream.getTracks().forEach((track) => track.stop());
+        audioStream = null;
 
-    let intensity_reset = 0.5
-    const recordingCircle = document.querySelector(".recording-circle");
-    recordingCircle.style.transform = `scale(${intensity_reset})`;
-    recordingCircle.style.boxShadow = `0 0 25px 5px #0f3460`;
-  }
-}
-
-// Visualisation des données audio
-function visualizeAudio(analyser) {
-
-
-  const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-  function draw() {
-    if (!isRecording) return;
-
-    // Récupérer les données de fréquence audio
-    analyser.getByteFrequencyData(dataArray);
-
-    // Calculer l'intensité moyenne
-    const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-
-    // Définir une échelle minimale pour les pulsations
-    const minScale = 1; // État de base
-    const maxScale = 1.5; // État maximal
-
-    // Seuil pour considérer un silence (20 ou moins)
-    const silenceThreshold = 20;
-    const intensity = avg > silenceThreshold 
-      ? Math.min(minScale + avg / 256, maxScale) 
-      : minScale;
-
-    // Appliquer l'échelle calculée à l'élément
-    const recordingCircle = document.querySelector(".recording-circle");
-    recordingCircle.style.transform = `scale(${intensity})`;
-    recordingCircle.style.boxShadow = `0 0 ${intensity * 20}px ${intensity * 10}px #00f2fe`;
-
-
-    // Afficher l'intensité dans la console pour diagnostic
-    console.log(`Intensité sonore : ${avg.toFixed(2)}, Échelle : ${intensity.toFixed(2)}`);
-
-    // Demander un nouveau dessin
-    requestAnimationFrame(draw);
-  }
-
-  draw();
-
-
-}
-
-
-
-
-// JS : Gérer le switcher
-/*
-document.getElementById("live-switch").addEventListener("change", (event) => {
-    const isLive = event.target.checked;
-  
-    if (isLive) {
-      console.log("Analyse en direct activée !");
-      liveStreamActive = true;
-      // Ajoutez ici la logique pour activer l'analyse en direct
-    } else {
-      console.log("Analyse en direct désactivée !");
-      liveStreamActive = false;
-      // Ajoutez ici la logique pour désactiver l'analyse en direct
+        const intensity_reset = 1;
+        recordingCircle.style.transform = `scale(${intensity_reset})`;
+        recordingCircle.style.boxShadow = `0 0 25px 5px #0f3460`;
+      }
     }
-  }); */
 
-// Initialisation des événements
-document.getElementById("start-btn").addEventListener("click", () => {
-  startRecording();
-  document.getElementById("start-btn").disabled = true;
-  document.getElementById("stop-btn").disabled = false;
-});
+    // Visualisation des données audio
+    function visualizeAudio(analyser) {
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
-document.getElementById("stop-btn").addEventListener("click", () => {
-  stopRecording();
-  document.getElementById("start-btn").disabled = false;
-  document.getElementById("stop-btn").disabled = true;
-});
+      function draw() {
+        if (!isRecording) return;
 
-// Démarrage WebSocket
-initWebSocket();
+        analyser.getByteFrequencyData(dataArray);
+        const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
 
+        const minScale = 1;
+        const maxScale = 1.5;
+        const silenceThreshold = 20;
+        const intensity = avg > silenceThreshold 
+          ? Math.min(minScale + avg / 256, maxScale) 
+          : minScale;
 
+        const recordingCircle = document.querySelector(".recording-circle");
+        recordingCircle.style.transform = `scale(${intensity})`;
+        recordingCircle.style.boxShadow = `0 0 ${intensity * 20}px ${intensity * 10}px #00f2fe`;
 
+        requestAnimationFrame(draw);
+      }
 
+      draw();
+    }
 
+    // Event Listeners
+    document.getElementById("toggle-config-btn").addEventListener("click", toggleConfig);
+    document.getElementById("save-config").addEventListener("click", saveConfig);
+    document.getElementById("reset-config").addEventListener("click", resetConfig);
 
+    document.getElementById("start-btn").addEventListener("click", () => {
+      startRecording();
+      document.getElementById("start-btn").disabled = true;
+      document.getElementById("stop-btn").disabled = false;
+    });
 
+    document.getElementById("stop-btn").addEventListener("click", () => {
+      stopRecording();
+      document.getElementById("start-btn").disabled = false;
+      document.getElementById("stop-btn").disabled = true;
+    });
 
+    // Initialisation
+    window.addEventListener('load', () => {
+      loadConfig();
+      checkBrowserCompatibility();
+      initWebSocket();
+    });
+
+    function switchInterface(type) {
+      if (type === 'index') {
+        alert('Redirection vers l\'interface d\'accueil (boutons simples)');
+        window.location.href = 'index.html';
+      } else if (type === 'simple') {
+        alert('Redirection vers l\'interface simple (joystick unique)');
+        window.location.href = 'simple.html';
+      } else if (type === 'advanced') {
+        alert('Redirection vers l\'interface avancée (double joystick)');
+        window.location.href = 'advanced.html';
+      } else if (type === 'vocal') {
+        alert('Redirection vers le mode vocal');
+        window.location.href = 'vocal.html';
+      }
+      // 'vocal' = page actuelle
+    }
   </script>
 </body>
 </html>
