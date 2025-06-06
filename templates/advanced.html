@@ -553,18 +553,20 @@
             }
         }
 
+        
         function switchInterface(type) {
-            // Dans un vrai projet, ceci redirigerait vers les autres pages
-            // Pour cette démo, on affiche juste un message
             if (type === 'home') {
                 alert('Redirection vers l\'interface d\'accueil (boutons simples)');
-                window.location.href = 'index.html';
+                window.location.href = 'https://d1rsk8xxv9lsa1.cloudfront.net/index.html';
             } else if (type === 'simple') {
                 alert('Redirection vers l\'interface simple (joystick unique)');
-                window.location.href = 'simple.html';
+                window.location.href = 'https://d1rsk8xxv9lsa1.cloudfront.net/simple.html';
+            } else if (type === 'advanced') {
+                alert('Redirection vers l\'interface avancée (double joystick)');
+                window.location.href = 'https://d1rsk8xxv9lsa1.cloudfront.net/advanced.html';
             } else if (type === 'vocal') {
-                alert('Redirection vers l\'interface vocal');
-                window.location.href = 'vocal.html';
+                alert('Redirection vers le mode vocal');
+                window.location.href = 'https://bbcvoyage.com/france/hetic/voice-control/index.html';
             }
             // 'advanced' = page actuelle
         }
