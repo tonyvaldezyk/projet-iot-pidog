@@ -427,6 +427,16 @@
             }
             // 'home' = page actuelle
         }
+        // ===== ÉTAT GLOBAL =====
+        const state = {
+            autonomousMode: false,
+            isTransitioning: false,
+            isBusy: false,
+            currentDirection: null,
+            lastCommandTime: 0,
+            commandCooldown: 200 // ms entre les commandes
+        };
+
         // ===== ÉLÉMENTS DOM =====
         const statusDiv = document.getElementById('status');
         const controller = document.getElementById('controller');
@@ -635,16 +645,52 @@
             }
         }
 
-        function sendDirection(direction) {
+        async function sendDirection(direction) {
+            const now = Date.now();
+            
+            // Vérification des conditions de blocage
             if (state.autonomousMode) {
                 console.log("Commande bloquée : mode autonome actif");
                 return;
             }
-            if (state.isTransitioning) {
-                console.log("Commande bloquée : transition en cours");
+            if (state.isBusy) {
+                console.log("Commande bloquée : commande en cours");
                 return;
             }
-            // ... reste inchangé ...
+            if ((now - state.lastCommandTime) < state.commandCooldown) {
+                console.log("Commande bloquée : délai entre les commandes");
+                return;
+            }
+
+            // Mise à jour de l'état
+            state.isBusy = true;
+            state.lastCommandTime = now;
+            state.currentDirection = direction;
+
+            try {
+                // Envoi de la commande au serveur
+                const response = await fetch(`${ROBOT_BASE_URL}/command`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ direction: direction })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Erreur HTTP: ${response.status}`);
+                }
+
+                const data = await response.json();
+                console.log(`Commande ${direction} envoyée:`, data);
+                
+            } catch (error) {
+                console.error(`Erreur lors de l'envoi de la commande ${direction}:`, error);
+            } finally {
+                // Libération du verrou après un court délai
+                setTimeout(() => {
+                    state.isBusy = false;
+                    state.currentDirection = null;
+                }, state.commandCooldown);
+            }
         }
 
         function updateStatus() {
