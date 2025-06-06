@@ -478,18 +478,17 @@
             const ip = ipInput.value.trim();
             
             if (ip) {
-                let baseUrl = ip;
+                let baseUrl = ip.trim();
                 
-                // Ajouter http:// si nécessaire
+                // Si ce n'est pas déjà une URL complète, ajouter le protocole
                 if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
-                    baseUrl = 'http://' + baseUrl;
+                    baseUrl = 'https://' + baseUrl;
                 }
                 
-                // Ajouter le port par défaut si absent
-                const url = new URL(baseUrl);
-                if (!url.port && !ip.includes(':')) {
-                    url.port = '5000';
-                    baseUrl = url.toString().replace(/\/$/, '');
+                // Ne pas ajouter de port pour les URLs de domaine (comme ngrok)
+                const isDomain = baseUrl.includes('.');
+                if (!isDomain && !baseUrl.includes(':')) {
+                    baseUrl += ':5000';
                 }
                 
                 ROBOT_BASE_URL = baseUrl;
