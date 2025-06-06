@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contrôleur PiDog - Simple</title>
+    <title>Contrôleur PACO - Simple</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <style>
         body {
             background: linear-gradient(135deg, #e0e7ff 0%, #f8fafc 100%);
@@ -385,6 +386,21 @@
                 gap: 10px;
             }
         }
+
+        .video-stream {
+            width: 500px;
+            height: 350px;
+            border-radius: 15px;
+            background: #000;
+            border: 3px solid #6366f1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6366f1;
+            font-weight: 600;
+            position: relative;
+            overflow: hidden;
+        }
     </style>
 </head>
 <body>
@@ -410,11 +426,11 @@
             <span id="connection-status">Déconnecté</span>
         </div>
 
-        <h1>🐕 PiDog Controller</h1>
+        <h1><i class="fa-solid fa-dog"></i> PACO Controller</h1>
         
         <div class="joystick-container" id="joystick">
             <div class="joystick-base"></div>
-            <div class="joystick-knob" id="knob">⚡</div>
+            <div class="joystick-knob" id="knob"><i class="fa-solid fa-bolt"></i></div>
             <div class="direction-indicator" id="direction"></div>
         </div>
         
@@ -450,7 +466,7 @@
                 <span class="status-label">Mode:</span>
                 <span class="status-value" id="mode-display">MANUEL</span>
             </div>
-            <div class="status-message" id="status">🔄 En attente de commande...</div>
+            <div class="status-message" id="status"><i class="fa-solid fa-rotate"></i> En attente de commande...</div>
         </div>
     </div>
 
@@ -606,8 +622,12 @@
         }
 
         function sendCommand(kx, ky) {
-            // Ne pas envoyer si en mode autonome
-            if (autonomousMode && !(kx === 0 && ky === 0)) {
+            if (autonomousMode) {
+                console.log("Commande bloquée : mode autonome actif");
+                return;
+            }
+            if (commandTimeout) {
+                console.log("Commande bloquée : transition en cours");
                 return;
             }
             
@@ -804,7 +824,60 @@
             connectRobot();
         }
         
-        console.log('🐕 PiDog Controller Simple Flask - Initialisé');
+        console.log('🐕 PACO Controller Simple Flask - Initialisé');
+
+        async function toggleAutonomousMode() {
+            if (state.isTransitioning) return;
+            state.isTransitioning = true;
+            autonomousSwitch.disabled = true;
+            statusDiv.textContent = "⏳ Transition en cours...";
+            const previousMode = state.autonomousMode;
+            state.autonomousMode = autonomousSwitch.checked;
+            let timeoutId = setTimeout(() => {
+                state.isTransitioning = false;
+                autonomousSwitch.disabled = false;
+                statusDiv.textContent = "❌ Timeout lors du changement de mode";
+                autonomousSwitch.checked = previousMode;
+                state.autonomousMode = previousMode;
+            }, 5000);
+            const response = await fetch((getRobotBaseUrl() ? getRobotBaseUrl() : '') + '/autonomous_mode', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled: state.autonomousMode })
+            });
+            clearTimeout(timeoutId);
+            const data = await response.json();
+            if (data.status === 'success') {
+                statusDiv.textContent = data.message;
+            } else {
+                autonomousSwitch.checked = previousMode;
+                state.autonomousMode = previousMode;
+                statusDiv.textContent = `❌ ${data.message}`;
+            }
+            state.isTransitioning = false;
+            autonomousSwitch.disabled = false;
+        }
+
+        function resetJoysticks() {
+            // ... code pour reset ...
+            if (window.commandTimeout) {
+                clearTimeout(window.commandTimeout);
+                window.commandTimeout = null;
+            }
+            if (!state.autonomousMode && !state.isTransitioning) {
+                sendCommand(0, 0);
+            } else {
+                console.log("Commande d'arrêt bloquée (autonome ou transition)");
+            }
+        }
+
+        function updateStatus() {
+            if (state.isTransitioning) {
+                console.log("updateStatus bloqué : transition en cours");
+                return;
+            }
+            // ... reste inchangé ...
+        }
     </script>
 </body>
 </html>

@@ -148,7 +148,43 @@ def autonomous_behavior():
         with autonomous_lock:
             return not autonomous_mode_enabled
 
-    # Actions statiques (non déplacement)
+    # ✅ AJOUT : Fonction pour actions sécurisées
+    def safe_action_with_timeout(action_name, speed, timeout=10):
+        """Exécute une action avec timeout pour éviter les blocages"""
+        try:
+            print(f"[AUTO] Executing {action_name} with timeout {timeout}s")
+            my_dog.do_action(action_name, speed=speed)
+            start_time = time.time()
+            while not my_dog.is_all_done():
+                if check_stop():
+                    print(f"[AUTO] Stop requested during {action_name}")
+                    my_dog.legs_stop()
+                    return False
+                if time.time() - start_time > timeout:
+                    print(f"[AUTO] TIMEOUT on {action_name}, stopping")
+                    my_dog.legs_stop()
+                    return False
+                time.sleep(0.1)
+            return True
+        except Exception as e:
+            print(f"[AUTO] ERROR in {action_name}: {e}")
+            try:
+                my_dog.legs_stop()
+            except:
+                pass
+            return False
+
+    # ✅ AJOUT : Lecture capteur sécurisée
+    def safe_read_distance():
+        """Lecture sécurisée du capteur avec gestion d'erreur"""
+        try:
+            distance = my_dog.read_distance()
+            return distance
+        except Exception as e:
+            print(f"[AUTO] Sensor error: {e}")
+            return None
+
+    # Actions statiques (non déplacement) - ✅ INCHANGÉ
     static_actions = [
         lambda: my_dog.do_action('bark', speed=100),
         lambda: my_dog.do_action('lie', speed=70),
@@ -157,76 +193,121 @@ def autonomous_behavior():
         lambda: my_dog.do_action('shake_head', speed=80),
     ]
 
-    while True:
-        # 1. Aboyer pendant 30 secondes
-        if check_stop(): break
-        print('[AUTO] Barking for 30s')
-        my_dog.do_action('bark', speed=100)
-        for _ in range(3):
+    # ✅ AJOUT : Gestion d'erreur globale
+    try:
+        while True:
+            # 1. Aboyer pendant 30 secondes - ✅ CORRIGÉ
             if check_stop(): break
-            sleep(1)
-        if check_stop(): break
+            print('[AUTO] Barking for 30s')
+            if not safe_action_with_timeout('bark', speed=100, timeout=5):
+                print("[AUTO] Bark failed, continuing...")
+            for _ in range(3):
+                if check_stop(): break
+                sleep(1)
+            if check_stop(): break
 
-        # 2. Marche avant, évite les obstacles, pendant 10s
-        print('[AUTO] Walking forward for 10s')
-        t0 = time.time()
-        while time.time() - t0 < 15:
+            # 2. Marche avant, évite les obstacles, pendant 10s - ✅ CORRIGÉ
+            print('[AUTO] Walking forward for 10s')
+            t0 = time.time()
+            while time.time() - t0 < 15:
+                if check_stop(): break
+                dist = safe_read_distance()
+                if dist is not None and dist < 20:
+                    print('[AUTO] Obstacle detected, avoiding')
+                    turn = random.choice(['turn_left', 'turn_right'])
+                    if safe_action_with_timeout(turn, speed=random.randint(85, 98), timeout=4):
+                        time.sleep(0.5)
+                        if not check_stop():
+                            safe_action_with_timeout('forward', speed=random.randint(85, 98), timeout=3)
+                    else:
+                        print("[AUTO] Avoidance failed, pausing")
+                        sleep(1)
+                else:
+                    if not safe_action_with_timeout('forward', speed=random.randint(85, 98), timeout=3):
+                        print("[AUTO] Forward failed, pausing")
+                        sleep(1)
+                sleep(0.5)
             if check_stop(): break
-            dist = my_dog.read_distance()
-            if dist is not None and dist < 20:
-                print('[AUTO] Obstacle detected, avoiding')
-                turn = random.choice(['turn_left', 'turn_right'])
-                my_dog.do_action(turn, speed=random.randint(85, 98))
-                my_dog.wait_all_done()
-                my_dog.do_action('forward', speed=random.randint(85, 98))
+
+            # 3. Action statique aléatoire pendant 5s - ✅ CORRIGÉ
+            if check_stop(): break
+            static_actions_safe = [
+                ('bark', 100, 4),
+                ('lie', 70, 6),
+                ('stretch', 80, 8),
+                ('wag_tail', 100, 4),
+                ('shake_head', 80, 5),
+            ]
+            action_name, action_speed, action_timeout = random.choice(static_actions_safe)
+            print(f'[AUTO] Static action for 5s: {action_name}')
+            if safe_action_with_timeout(action_name, speed=action_speed, timeout=action_timeout):
+                for _ in range(5):
+                    if check_stop(): break
+                    sleep(1)
             else:
-                my_dog.do_action('forward', speed=random.randint(85, 98))
-            my_dog.wait_all_done()
-            sleep(0.5)
-        if check_stop(): break
-
-        # 3. Action statique aléatoire pendant 5s
-        action = random.choice(static_actions)
-        print(f'[AUTO] Static action for 5s: {action.__name__}')
-        action()
-        for _ in range(5):
+                print(f"[AUTO] {action_name} failed, continuing...")
             if check_stop(): break
-            sleep(1)
-        if check_stop(): break
 
-        # 4. Se lever
-        print('[AUTO] Standing up')
-        my_dog.do_action('stand', speed=70)
-        my_dog.wait_all_done()
-        if check_stop(): break
-
-        # 5. Marche avant (10-15s), évite les obstacles
-        walk_time = random.randint(10, 15)
-        print(f'[AUTO] Walking forward for {walk_time}s')
-        t0 = time.time()
-        while time.time() - t0 < walk_time:
-            if check_stop(): break
-            dist = my_dog.read_distance()
-            if dist is not None and dist < 20:
-                print('[AUTO] Obstacle detected, avoiding')
-                turn = random.choice(['turn_left', 'turn_right'])
-                my_dog.do_action(turn, speed=random.randint(85, 98))
-                my_dog.wait_all_done()
-                my_dog.do_action('forward', speed=random.randint(85, 98))
+            # 4. Se lever - ✅ CORRIGÉ
+            print('[AUTO] Standing up')
+            if not safe_action_with_timeout('stand', speed=70, timeout=6):
+                print("[AUTO] Stand failed, continuing...")
             else:
-                my_dog.do_action('forward', speed=random.randint(85, 98))
-            my_dog.wait_all_done()
-            sleep(0.5)
-        if check_stop(): break
-
-        # 6. Action statique aléatoire pendant 5s
-        action = random.choice(static_actions)
-        print(f'[AUTO] Static action for 5s: {action.__name__}')
-        action()
-        for _ in range(5):
+                sleep(1)
             if check_stop(): break
-            sleep(1)
-        if check_stop(): break
+
+            # 5. Marche avant (10-15s), évite les obstacles - ✅ CORRIGÉ
+            walk_time = random.randint(10, 15)
+            print(f'[AUTO] Walking forward for {walk_time}s')
+            t0 = time.time()
+            while time.time() - t0 < walk_time:
+                if check_stop(): break
+                dist = safe_read_distance()
+                if dist is not None and dist < 20:
+                    print('[AUTO] Obstacle detected, avoiding')
+                    turn = random.choice(['turn_left', 'turn_right'])
+                    if safe_action_with_timeout(turn, speed=random.randint(85, 98), timeout=4):
+                        time.sleep(0.5)
+                        if not check_stop():
+                            safe_action_with_timeout('forward', speed=random.randint(85, 98), timeout=3)
+                    else:
+                        print("[AUTO] Long walk avoidance failed")
+                        sleep(1)
+                else:
+                    if not safe_action_with_timeout('forward', speed=random.randint(85, 98), timeout=3):
+                        print("[AUTO] Long walk forward failed")
+                        sleep(1)
+                sleep(0.5)
+            if check_stop(): break
+
+            # 6. Action statique aléatoire pendant 5s - ✅ CORRIGÉ
+            if check_stop(): break
+            action_name, action_speed, action_timeout = random.choice(static_actions_safe)
+            print(f'[AUTO] Final static action for 5s: {action_name}')
+            if safe_action_with_timeout(action_name, speed=action_speed, timeout=action_timeout):
+                for _ in range(5):
+                    if check_stop(): break
+                    sleep(1)
+            else:
+                print(f"[AUTO] Final {action_name} failed, continuing...")
+            if check_stop(): break
+            print("[AUTO] Cycle complete, resting...")
+            for _ in range(3):
+                if check_stop(): break
+                sleep(1)
+    except Exception as e:
+        print(f"[AUTO] FATAL ERROR: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        print("[AUTO] Autonomous mode stopped - Final cleanup")
+        try:
+            my_dog.legs_stop()
+            cleanup_start = time.time()
+            while not my_dog.is_all_done() and time.time() - cleanup_start < 3:
+                sleep(0.1)
+        except Exception as cleanup_error:
+            print(f"[AUTO] Cleanup error: {cleanup_error}")
 
 # Flask App
 app = Flask(__name__)

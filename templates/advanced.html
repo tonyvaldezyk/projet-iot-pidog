@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PiDog Controller - Mode Autonome Corrigé</title>
+    <title>PACO Controller - Mode Autonome Corrigé</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <style>
         * {
             margin: 0;
@@ -368,8 +369,8 @@
         }
 
         .video-stream {
-            width: 300px;
-            height: 200px;
+            width: 500px;
+            height: 350px;
             border-radius: 15px;
             background: #000;
             border: 3px solid #6366f1;
@@ -427,10 +428,10 @@
     <!-- Navigation Header -->
     <div class="nav-header">
         <div class="nav-buttons">
-            <a href="#" class="nav-btn" onclick="switchInterface('home')">🏠 Accueil</a>
-            <a href="#" class="nav-btn" onclick="switchInterface('simple')">🎮 Simple</a>
-            <a href="#" class="nav-btn" onclick="switchInterface('vocal')">🎤 Mode vocal</a>
-            <a href="#" class="nav-btn active" onclick="switchInterface('advanced')">⚡ Avancé</a>
+            <a href="#" class="nav-btn" onclick="switchInterface('home')"><i class='fa-solid fa-house'></i> Accueil</a>
+            <a href="#" class="nav-btn" onclick="switchInterface('simple')"><i class='fa-solid fa-gamepad'></i> Simple</a>
+            <a href="#" class="nav-btn" onclick="switchInterface('vocal')"><i class='fa-solid fa-microphone'></i> Mode vocal</a>
+            <a href="#" class="nav-btn active" onclick="switchInterface('advanced')"><i class='fa-solid fa-bolt'></i> Avancé</a>
         </div>
         
         <div class="ip-config">
@@ -446,7 +447,7 @@
             <span id="connection-text">Connexion...</span>
         </div>
 
-        <div class="header">🐕 PIDOG CONTROLLER</div>
+        <div class="header"><i class="fa-solid fa-dog"></i> PACO CONTROLLER</div>
 
         <div class="autonomous-panel" id="autonomous-panel">
             <label>
@@ -461,7 +462,7 @@
         <div class="left-controls">
             <div class="joystick-container" id="movement-joystick">
                 <div class="joystick-base"></div>
-                <div class="joystick-knob" id="movement-knob">🎮</div>
+                <div class="joystick-knob" id="movement-knob"><i class="fa-solid fa-gamepad"></i></div>
             </div>
             <div class="joystick-label">MOUVEMENT</div>
             
@@ -476,8 +477,8 @@
         <!-- Centre -->
         <div class="center-display">
             <div class="video-stream">
-                📹 Caméra
-                <div class="autonomous-indicator">AUTO</div>
+                <i class="fa-solid fa-video"></i> Caméra
+                <div class="autonomous-indicator"><i class="fa-solid fa-robot"></i> AUTO</div>
             </div>
         </div>
 
@@ -485,7 +486,7 @@
         <div class="right-controls">
             <div class="joystick-container" id="head-joystick">
                 <div class="joystick-base"></div>
-                <div class="joystick-knob" id="head-knob">👁️</div>
+                <div class="joystick-knob" id="head-knob"><i class="fa-solid fa-eye"></i></div>
             </div>
             <div class="joystick-label">CONTRÔLE TÊTE</div>
             
@@ -663,11 +664,15 @@
             state.movement.ky = 0;
             state.head.qx = 0;
             state.head.qy = 0;
-            
             updateInterface();
-            
-            if (!state.autonomousMode) {
-                sendMovementCommand(true);
+            if (window.commandTimeout) {
+                clearTimeout(window.commandTimeout);
+                window.commandTimeout = null;
+            }
+            if (!state.autonomousMode && !state.isTransitioning) {
+                sendMovementCommand(0, 0, true);
+            } else {
+                console.log("Commande d'arrêt bloquée (autonome ou transition)");
             }
         }
 
@@ -711,23 +716,37 @@
             }
         }
 
-        async function sendMovementCommand(force = false) {
-            if (state.autonomousMode && !force) {
+        async function sendMovementCommand(kx = null, ky = null, force = false) {
+            if (state.autonomousMode) {
+                console.log("Commande bloquée : mode autonome actif");
                 return;
             }
-            
-            const { kx, ky } = state.movement;
-            
-            if (!force && Math.abs(kx) < CONFIG.MOVEMENT_THRESHOLD && Math.abs(ky) < CONFIG.MOVEMENT_THRESHOLD) {
+            if (state.isTransitioning) {
+                console.log("Commande bloquée : transition en cours");
                 return;
             }
-            
-            state.lastSendTime = Date.now();
-            
-            const result = await sendRequest('/command', { kx, ky });
-            
-            if (result.status === 'success') {
-                elements.status.textContent = '✅ OK';
+            // Utiliser les paramètres directs ou l'état global
+            const finalKx = kx !== null ? kx : state.movement.kx;
+            const finalKy = ky !== null ? ky : state.movement.ky;
+            const now = Date.now();
+            if (!force && now - state.lastSendTime < CONFIG.SEND_INTERVAL) {
+                return;
+            }
+            if (!force && Math.abs(finalKx) < 0.05 && Math.abs(finalKy) < 0.05) {
+                return;
+            }
+            state.lastSendTime = now;
+            // Affichage comme dans le code simple
+            const result = calculateDirection(finalKx, finalKy);
+            elements.status.textContent = `📡 Envoi: ${result.direction} (${result.speed}%)`;
+            const response = await sendRequest('/command', { kx: finalKx, ky: finalKy });
+            if (response.status === 'success') {
+                elements.status.textContent = `✅ ${response.message}`;
+            } else if (response.status === 'busy') {
+                elements.status.textContent = '⏳ Robot occupé, réessai...';
+                setTimeout(() => sendMovementCommand(finalKx, finalKy, force), 200);
+            } else {
+                elements.status.textContent = `❌ Erreur: ${response.message}`;
             }
         }
 
@@ -756,21 +775,31 @@
         }
 
         async function toggleAutonomousMode() {
+            if (state.isTransitioning) return;
             state.isTransitioning = true;
-            const enabled = elements.autonomousSwitch.checked;
-            
-            const result = await sendRequest('/autonomous_mode', { enabled });
-            
+            elements.autonomousSwitch.disabled = true;
+            elements.status.textContent = "⏳ Transition en cours...";
+            const previousMode = state.autonomousMode;
+            state.autonomousMode = elements.autonomousSwitch.checked;
+            let timeoutId = setTimeout(() => {
+                state.isTransitioning = false;
+                elements.autonomousSwitch.disabled = false;
+                elements.status.textContent = "❌ Timeout lors du changement de mode";
+                elements.autonomousSwitch.checked = previousMode;
+                state.autonomousMode = previousMode;
+            }, 5000);
+            const result = await sendRequest('/autonomous_mode', { enabled: state.autonomousMode });
+            clearTimeout(timeoutId);
             if (result.status === 'success') {
-                state.autonomousMode = enabled;
-                setAutonomousUI(enabled);
+                setAutonomousUI(state.autonomousMode);
                 elements.status.textContent = result.message;
             } else {
-                elements.autonomousSwitch.checked = !enabled;
+                elements.autonomousSwitch.checked = previousMode;
+                state.autonomousMode = previousMode;
                 elements.status.textContent = `❌ ${result.message}`;
             }
-            
             state.isTransitioning = false;
+            elements.autonomousSwitch.disabled = false;
         }
         
         function updateConnectionStatus(connected, busy = false) {
@@ -802,7 +831,7 @@
             if (kr >= CONFIG.DEADZONE) {
                 if (Math.abs(ky) > Math.abs(kx)) {
                     direction = ky > 0 ? "FORWARD" : "BACKWARD";
-                } else {
+            } else {
                     direction = kx > 0 ? "TURN_RIGHT" : "TURN_LEFT";
                 }
                 speed = Math.round(CONFIG.MIN_SPEED + (CONFIG.MAX_SPEED - CONFIG.MIN_SPEED) * Math.min(kr, 1.0));
@@ -813,51 +842,85 @@
             elements.speed.textContent = `${speed}%`;
         }
 
+        function calculateDirection(kx, ky) {
+            const kr = Math.sqrt(kx*kx + ky*ky);
+            if (kr < CONFIG.DEADZONE) {
+                return { direction: "stop", speed: 0, kr: kr };
+            }
+            const ka = Math.atan2(ky, kx) * 180 / Math.PI;
+            let direction;
+            if (ka > 45 && ka < 135) {
+                direction = "forward";
+            } else if (ka > 135 || ka < -135) {
+                direction = "turn_left";
+            } else if (ka > -45 && ka < 45) {
+                direction = "turn_right";
+            } else if (ka > -135 && ka < -45) {
+                direction = "backward";
+            } else {
+                direction = "stop";
+            }
+            const speed = direction === "stop" ? 0 : 
+                Math.round(CONFIG.MIN_SPEED + (CONFIG.MAX_SPEED - CONFIG.MIN_SPEED) * Math.min(kr, 1.0));
+            return { direction, speed, kr };
+        }
+
         // ===== GESTION DES JOYSTICKS =====
         function setupJoystick(container, knob, callback) {
             const rect = container.getBoundingClientRect();
             const center = { x: rect.width / 2, y: rect.height / 2 };
             const maxRadius = center.x - 25;
-            
             let dragging = false;
-            
+            let commandTimeout = null; // Timeout local pour debouncing
+
             function setKnobPosition(x, y) {
                 knob.style.left = `${x}px`;
                 knob.style.top = `${y}px`;
             }
-            
+
             function handleMove(clientX, clientY) {
                 if (!dragging || state.autonomousMode) return;
-                
                 const containerRect = container.getBoundingClientRect();
                 let x = clientX - containerRect.left;
                 let y = clientY - containerRect.top;
-                
                 let dx = x - center.x;
                 let dy = y - center.y;
                 let distance = Math.sqrt(dx*dx + dy*dy);
-                
                 if (distance > maxRadius) {
                     dx = dx * maxRadius / distance;
                     dy = dy * maxRadius / distance;
                 }
-                
                 setKnobPosition(center.x + dx, center.y + dy);
-                
                 const normalizedKx = dx / maxRadius;
                 const normalizedKy = -dy / maxRadius;
-                
                 callback(normalizedKx, normalizedKy);
+                // Envoi direct pour le stick de mouvement SEULEMENT
+                if (container.id === 'movement-joystick') {
+                    if (commandTimeout) {
+                        clearTimeout(commandTimeout);
+                    }
+                    commandTimeout = setTimeout(() => {
+                        sendMovementCommand(normalizedKx, normalizedKy);
+                    }, CONFIG.SEND_INTERVAL);
+                }
             }
-            
+
             function handleEnd() {
                 if (!dragging) return;
                 dragging = false;
                 knob.classList.remove('active');
                 setKnobPosition(center.x, center.y);
                 callback(0, 0);
+                // Arrêt immédiat pour le stick de mouvement
+                if (container.id === 'movement-joystick') {
+                    if (commandTimeout) {
+                        clearTimeout(commandTimeout);
+                        commandTimeout = null;
+                    }
+                    sendMovementCommand(0, 0, true); // Force l'envoi d'arrêt
+                }
             }
-            
+
             knob.addEventListener('mousedown', (e) => {
                 if (!state.autonomousMode) {
                     dragging = true;
@@ -865,7 +928,6 @@
                     e.preventDefault();
                 }
             });
-            
             knob.addEventListener('touchstart', (e) => {
                 if (!state.autonomousMode) {
                     dragging = true;
@@ -873,23 +935,21 @@
                     e.preventDefault();
                 }
             });
-            
             document.addEventListener('mousemove', (e) => handleMove(e.clientX, e.clientY));
             document.addEventListener('touchmove', (e) => {
                 if (e.touches.length === 1) {
                     handleMove(e.touches[0].clientX, e.touches[0].clientY);
                 }
             });
-            
             document.addEventListener('mouseup', handleEnd);
             document.addEventListener('touchend', handleEnd);
-            
             setKnobPosition(center.x, center.y);
         }
 
         // ===== MISE À JOUR PÉRIODIQUE =====
         async function updateStatus() {
             if (state.isTransitioning) {
+                console.log("updateStatus bloqué : transition en cours");
                 return;
             }
             
@@ -912,23 +972,13 @@
             }
         }
 
-        function startMovementSending() {
-            if (!state.sendTimer) {
-                state.sendTimer = setInterval(() => {
-                    if (!state.autonomousMode && (state.movement.kx !== 0 || state.movement.ky !== 0)) {
-                        sendMovementCommand();
-                    }
-                }, CONFIG.SEND_INTERVAL);
-            }
-        }
-
         // ===== INITIALISATION =====
         function init() {
             setupJoystick(elements.movementJoystick, elements.movementKnob, (kx, ky) => {
                 if (state.autonomousMode) return;
                 state.movement.kx = kx;
                 state.movement.ky = ky;
-                updateInterface();
+            updateInterface();
             });
             
             setupJoystick(elements.headJoystick, elements.headKnob, (qx, qy) => {
@@ -944,13 +994,12 @@
             
             elements.autonomousSwitch.addEventListener('change', toggleAutonomousMode);
             
-            startMovementSending();
             state.statusTimer = setInterval(updateStatus, CONFIG.STATUS_UPDATE_INTERVAL);
             
             updateInterface();
             updateStatus();
             
-            console.log('🐕 PiDog Controller Advanced - Initialisé');
+            console.log('🐕 PACO Controller Advanced - Initialisé');
         }
 
         document.addEventListener('DOMContentLoaded', init);

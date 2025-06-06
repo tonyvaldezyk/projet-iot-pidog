@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contrôleur PiDog - Accueil</title>
+    <title>Contrôleur PACO - Accueil</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <style>
         body {
             background: linear-gradient(135deg, #e0e7ff 0%, #f8fafc 100%);
@@ -273,6 +274,21 @@
             border-left: 3px solid #6366f1;
         }
 
+        .video-stream {
+            width: 500px;
+            height: 350px;
+            border-radius: 15px;
+            background: #000;
+            border: 3px solid #6366f1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6366f1;
+            font-weight: 600;
+            position: relative;
+            overflow: hidden;
+        }
+
         @media (max-width: 768px) {
             .nav-header {
                 flex-direction: column;
@@ -307,10 +323,10 @@
     <!-- Navigation Header -->
     <div class="nav-header">
         <div class="nav-buttons">
-            <a href="#" class="nav-btn active" onclick="switchInterface('home')">🏠 Accueil</a>
-            <a href="#" class="nav-btn" onclick="switchInterface('simple')">🎮 Simple</a>
-            <a href="#" class="nav-btn" onclick="switchInterface('vocal')">🎤 Mode vocal</a>
-            <a href="#" class="nav-btn" onclick="switchInterface('advanced')">⚡ Avancé</a>
+            <a href="#" class="nav-btn active" onclick="switchInterface('home')"><i class='fa-solid fa-house'></i> Accueil</a>
+            <a href="#" class="nav-btn" onclick="switchInterface('simple')"><i class='fa-solid fa-gamepad'></i> Simple</a>
+            <a href="#" class="nav-btn" onclick="switchInterface('vocal')"><i class='fa-solid fa-microphone'></i> Mode vocal</a>
+            <a href="#" class="nav-btn" onclick="switchInterface('advanced')"><i class='fa-solid fa-bolt'></i> Avancé</a>
         </div>
         
         <div class="ip-config">
@@ -321,20 +337,20 @@
     </div>
 
     <div class="controller" id="controller">
-        <h1>🐕 PiDog Contrôle Simple</h1>
+        <h1><i class="fa-solid fa-dog"></i> PACO Contrôle Simple</h1>
         
         <div class="button-panel">
-            <button class="ctrl-btn" id="btn-forward">⬆️ Avancer</button>
+            <button class="ctrl-btn" id="btn-forward"><i class="fa-solid fa-arrow-up"></i> Avancer</button>
         </div>
         
         <div class="button-panel">
-            <button class="ctrl-btn" id="btn-left">⬅️ Gauche</button>
-            <button class="ctrl-btn" id="btn-stop">⏹️ Stop</button>
-            <button class="ctrl-btn" id="btn-right">➡️ Droite</button>
+            <button class="ctrl-btn" id="btn-left"><i class="fa-solid fa-arrow-left"></i> Gauche</button>
+            <button class="ctrl-btn" id="btn-stop"><i class="fa-solid fa-stop"></i> Stop</button>
+            <button class="ctrl-btn" id="btn-right"><i class="fa-solid fa-arrow-right"></i> Droite</button>
         </div>
         
         <div class="button-panel">
-            <button class="ctrl-btn" id="btn-backward">⬇️ Reculer</button>
+            <button class="ctrl-btn" id="btn-backward"><i class="fa-solid fa-arrow-down"></i> Reculer</button>
         </div>
         
         <div class="autonomous-control" id="autonomous-panel">
@@ -359,7 +375,7 @@
                 <span class="status-label">Dernière commande:</span>
                 <span class="status-value" id="last-command">AUCUNE</span>
             </div>
-            <div class="status-message" id="status">🔄 En attente de commande...</div>
+            <div class="status-message" id="status"><i class="fa-solid fa-rotate"></i> En attente de commande...</div>
         </div>
     </div>
 
@@ -561,6 +577,71 @@
         // ===== INITIALISATION =====
         console.log('🐕 PiDog Controller Home - Initialisé');
         console.log('💡 Utilisez les flèches du clavier ou ZQSD + Espace pour arrêter');
+
+        async function toggleAutonomousMode() {
+            if (state.isTransitioning) return;
+            state.isTransitioning = true;
+            autonomousSwitch.disabled = true;
+            statusDiv.textContent = "⏳ Transition en cours...";
+            const previousMode = state.autonomousMode;
+            state.autonomousMode = autonomousSwitch.checked;
+            let timeoutId = setTimeout(() => {
+                state.isTransitioning = false;
+                autonomousSwitch.disabled = false;
+                statusDiv.textContent = "❌ Timeout lors du changement de mode";
+                autonomousSwitch.checked = previousMode;
+                state.autonomousMode = previousMode;
+            }, 5000);
+            const response = await fetch((getRobotBaseUrl() ? getRobotBaseUrl() : '') + '/autonomous_mode', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled: state.autonomousMode })
+            });
+            clearTimeout(timeoutId);
+            const data = await response.json();
+            if (data.status === 'success') {
+                statusDiv.textContent = data.message;
+            } else {
+                autonomousSwitch.checked = previousMode;
+                state.autonomousMode = previousMode;
+                statusDiv.textContent = `❌ ${data.message}`;
+            }
+            state.isTransitioning = false;
+            autonomousSwitch.disabled = false;
+        }
+
+        function resetJoysticks() {
+            // ... code pour reset ...
+            if (window.commandTimeout) {
+                clearTimeout(window.commandTimeout);
+                window.commandTimeout = null;
+            }
+            if (!state.autonomousMode && !state.isTransitioning) {
+                sendDirection('stop');
+            } else {
+                console.log("Commande d'arrêt bloquée (autonome ou transition)");
+            }
+        }
+
+        function sendDirection(direction) {
+            if (state.autonomousMode) {
+                console.log("Commande bloquée : mode autonome actif");
+                return;
+            }
+            if (state.isTransitioning) {
+                console.log("Commande bloquée : transition en cours");
+                return;
+            }
+            // ... reste inchangé ...
+        }
+
+        function updateStatus() {
+            if (state.isTransitioning) {
+                console.log("updateStatus bloqué : transition en cours");
+                return;
+            }
+            // ... reste inchangé ...
+        }
     </script>
 </body>
 </html>
