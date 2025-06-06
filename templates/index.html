@@ -434,61 +434,117 @@
             isBusy: false,
             currentDirection: null,
             lastCommandTime: 0,
-            commandCooldown: 200 // ms entre les commandes
+            commandCooldown: 100, // ms entre les commandes
+            requestsInFlight: new Set()
         };
 
         // ===== ÉLÉMENTS DOM =====
-        const statusDiv = document.getElementById('status');
-        const controller = document.getElementById('controller');
-        const autonomousSwitch = document.getElementById('autonomous-switch');
-        const autonomousStatus = document.getElementById('autonomous-status');
-        const autonomousPanel = document.getElementById('autonomous-panel');
-        const robotState = document.getElementById('robot-state');
-        const modeDisplay = document.getElementById('mode-display');
-        const lastCommand = document.getElementById('last-command');
-        const controlButtons = document.querySelectorAll('.ctrl-btn');
-        
-        let autonomousMode = false;
+        const elements = {
+            status: document.getElementById('status'),
+            controller: document.getElementById('controller'),
+            autonomousSwitch: document.getElementById('autonomous-switch'),
+            autonomousStatus: document.getElementById('autonomous-status'),
+            autonomousPanel: document.getElementById('autonomous-panel'),
+            robotState: document.getElementById('robot-state'),
+            modeDisplay: document.getElementById('mode-display'),
+            lastCommand: document.getElementById('last-command'),
+            controlButtons: document.querySelectorAll('.ctrl-btn')
+        };
 
         // ===== GESTION DU MODE AUTONOME =====
         function setAutonomousUI(enabled) {
-            autonomousMode = enabled;
+            state.autonomousMode = enabled;
             
             if (enabled) {
-                controller.classList.add('autonomous-active');
-                autonomousPanel.classList.add('active');
-                autonomousStatus.textContent = 'ON';
-                autonomousStatus.style.background = '#10b981';
-                autonomousStatus.style.color = 'white';
-                modeDisplay.textContent = 'AUTONOME';
-                modeDisplay.style.color = '#6366f1';
+                elements.controller.classList.add('autonomous-active');
+                elements.autonomousPanel.classList.add('active');
+                elements.autonomousStatus.textContent = 'ON';
+                elements.autonomousStatus.style.background = '#10b981';
+                elements.autonomousStatus.style.color = 'white';
+                elements.modeDisplay.textContent = 'AUTONOME';
+                elements.modeDisplay.style.color = '#6366f1';
                 
                 // Désactiver les boutons
-                controlButtons.forEach(btn => btn.disabled = true);
+                elements.controlButtons.forEach(btn => btn.disabled = true);
                 
                 // Envoyer un signal d'arrêt
                 sendDirection('stop', true);
             } else {
-                controller.classList.remove('autonomous-active');
-                autonomousPanel.classList.remove('active');
-                autonomousStatus.textContent = 'OFF';
-                autonomousStatus.style.background = 'rgba(255,255,255,0.8)';
-                autonomousStatus.style.color = '#6366f1';
-                modeDisplay.textContent = 'MANUEL';
-                modeDisplay.style.color = '#1e40af';
+                elements.controller.classList.remove('autonomous-active');
+                elements.autonomousPanel.classList.remove('active');
+                elements.autonomousStatus.textContent = 'OFF';
+                elements.autonomousStatus.style.background = 'rgba(255,255,255,0.8)';
+                elements.autonomousStatus.style.color = '#6366f1';
+                elements.modeDisplay.textContent = 'MANUEL';
+                elements.modeDisplay.style.color = '#1e40af';
                 
                 // Réactiver les boutons
-                controlButtons.forEach(btn => btn.disabled = false);
+                elements.controlButtons.forEach(btn => btn.disabled = false);
+            }
+        }
+
+        // ===== COMMUNICATION =====
+        async function sendRequest(url, data, retries = 3) {
+            if (state.isTransitioning && url !== '/autonomous_mode') {
+                return { status: 'blocked' };
+            }
+            
+            const fullUrl = ROBOT_BASE_URL + url;
+            
+            if (state.requestsInFlight.has(url)) {
+                return { status: 'duplicate' };
+            }
+            
+            state.requestsInFlight.add(url);
+            
+            try {
+                const response = await fetch(fullUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                    signal: AbortSignal.timeout(1000)
+                });
+                
+                const result = await response.json();
+                updateConnectionStatus(true, result.status === 'busy');
+                return result;
+                
+            } catch (error) {
+                if (retries > 0) {
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                    return sendRequest(url, data, retries - 1);
+                }
+                
+                updateConnectionStatus(false);
+                return { status: 'error', message: 'Connexion échouée' };
+                
+            } finally {
+                state.requestsInFlight.delete(url);
             }
         }
 
         // ===== LOGIQUE DE CONTRÔLE =====
-        function sendDirection(direction, force = false) {
-            // Ne pas envoyer si en mode autonome, sauf si forcé
-            if (autonomousMode && !force) {
-                statusDiv.textContent = '⚠️ Mode autonome actif';
+        async function sendDirection(direction, force = false) {
+            // Ne pas envoyer si en mode autonome ou en transition, sauf si forcé
+            if ((state.autonomousMode || state.isTransitioning) && !force) {
+                elements.status.textContent = '⚠️ ' + (state.autonomousMode ? 'Mode autonome actif' : 'Transition en cours');
                 return;
             }
+            
+            // Vérifier le délai minimum entre les commandes
+            const now = Date.now();
+            if (now - state.lastCommandTime < state.commandCooldown) {
+                return;
+            }
+            
+            // Vérifier si une commande est déjà en cours
+            if (state.isBusy) {
+                return;
+            }
+            
+            state.isBusy = true;
+            state.lastCommandTime = now;
+            state.currentDirection = direction;
             
             let kx = 0, ky = 0;
             const max = 1.0;
@@ -499,33 +555,31 @@
             else if (direction === 'right') kx = max;
             // stop: kx=0, ky=0
             
-            lastCommand.textContent = direction.toUpperCase();
+            elements.lastCommand.textContent = direction.toUpperCase();
+            elements.status.textContent = `📡 Envoi: ${direction.toUpperCase()}`;
             
-            fetch(ROBOT_BASE_URL + '/command', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ kx: kx, ky: ky })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    statusDiv.textContent = `✅ ${data.message}`;
-                    robotState.textContent = 'ACTIF';
-                } else if (data.status === 'busy') {
-                    statusDiv.textContent = '⏳ Robot occupé, réessai...';
-                    robotState.textContent = 'OCCUPÉ';
-                    // Réessayer après un délai
-                    setTimeout(() => sendDirection(direction, force), 300);
+            try {
+                const response = await sendRequest('/command', { kx, ky });
+                
+                if (response.status === 'success') {
+                    elements.status.textContent = `✅ ${response.message || 'Commande envoyée'}`;
+                    elements.robotState.textContent = 'ACTIF';
+                } else if (response.status === 'busy') {
+                    elements.status.textContent = '⏳ Robot occupé...';
+                    elements.robotState.textContent = 'OCCUPÉ';
                 } else {
-                    statusDiv.textContent = `❌ Erreur: ${data.message}`;
-                    robotState.textContent = 'ERREUR';
+                    elements.status.textContent = `❌ ${response.message || 'Erreur inconnue'}`;
+                    elements.robotState.textContent = 'ERREUR';
                 }
-            })
-            .catch((error) => {
-                statusDiv.textContent = '🔴 Erreur de communication';
-                robotState.textContent = 'DÉCONNECTÉ';
-                console.error('Erreur:', error);
-            });
+                
+            } catch (error) {
+                console.error('Erreur dans sendDirection:', error);
+                elements.status.textContent = '🔴 Erreur de communication';
+                elements.robotState.textContent = 'DÉCONNECTÉ';
+            } finally {
+                state.isBusy = false;
+                state.currentDirection = null;
+            }
         }
 
         // ===== EVENT LISTENERS =====
@@ -536,33 +590,72 @@
         document.getElementById('btn-stop').onclick = () => sendDirection('stop');
 
         // Mode autonome
-        autonomousSwitch.onchange = function() {
-            const enabled = autonomousSwitch.checked;
+        elements.autonomousSwitch.onchange = async function() {
+            if (state.isTransitioning) return;
             
-            fetch(ROBOT_BASE_URL + '/autonomous_mode', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ enabled })
-            })
-            .then(response => response.json())
-            .then(data => {
+            const enabled = elements.autonomousSwitch.checked;
+            state.isTransitioning = true;
+            elements.autonomousSwitch.disabled = true;
+            elements.status.textContent = enabled ? "🔄 Activation du mode autonome..." : "🔄 Désactivation du mode autonome...";
+            
+            try {
+                const response = await fetch(ROBOT_BASE_URL + '/autonomous_mode', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled }),
+                    signal: AbortSignal.timeout(3000) // Timeout de 3 secondes
+                });
+                
+                const data = await response.json();
+                
                 if (data.status === 'success') {
                     setAutonomousUI(enabled);
-                    statusDiv.textContent = data.message;
+                    elements.status.textContent = data.message || (enabled ? "✅ Mode autonome activé" : "✅ Mode manuel activé");
+                    
+                    // Réinitialisation complète après la transition
+                    if (!enabled) {
+                        // Réinitialiser l'état des commandes
+                        state.isBusy = false;
+                        state.currentDirection = null;
+                        state.lastCommandTime = 0;
+                    }
                 } else {
-                    statusDiv.textContent = `❌ Erreur: ${data.message}`;
-                    autonomousSwitch.checked = !enabled;
+                    throw new Error(data.message || 'Erreur inconnue');
                 }
-            })
-            .catch(() => {
-                statusDiv.textContent = '🔴 Erreur de communication';
-                autonomousSwitch.checked = !enabled;
-            });
+            } catch (error) {
+                console.error('Erreur mode autonome:', error);
+                elements.autonomousSwitch.checked = !enabled;
+                elements.status.textContent = `❌ ${error.message || 'Erreur de communication'}`;
+                
+                // Réactiver l'interface en cas d'erreur
+                state.autonomousMode = false;
+                setAutonomousUI(false);
+            } finally {
+                state.isTransitioning = false;
+                elements.autonomousSwitch.disabled = false;
+            }
         };
+
+        // ===== GESTION DE LA CONNEXION =====
+        function updateConnectionStatus(connected, busy = false) {
+            if (connected) {
+                elements.robotState.textContent = busy ? 'OCCUPÉ' : 'CONNECTÉ';
+                elements.robotState.style.color = busy ? '#f59e0b' : '#10b981';
+            } else {
+                elements.robotState.textContent = 'DÉCONNECTÉ';
+                elements.robotState.style.color = '#ef4444';
+                
+                // Si on perd la connexion, on réinitialise l'état
+                state.isBusy = false;
+                state.currentDirection = null;
+                state.isTransitioning = false;
+                elements.autonomousSwitch.disabled = false;
+            }
+        }
 
         // ===== CONTRÔLES CLAVIER =====
         document.addEventListener('keydown', function(e) {
-            if (autonomousMode) return;
+            if (state.autonomousMode || state.isTransitioning) return;
             
             switch(e.key) {
                 case 'ArrowUp':

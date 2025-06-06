@@ -663,8 +663,13 @@
         async function sendCommand(kx, ky, retryCount = 0) {
             const now = Date.now();
             
+            // Vérifier si on est en mode autonome ou en transition
+            if (state.autonomousMode || state.isTransitioning) {
+                return;
+            }
+            
             // Vérifier le délai minimum entre les commandes
-            if (now - lastSendTime < SEND_INTERVAL && retryCount === 0) {
+            if (now - state.lastCommandTime < state.commandCooldown && retryCount === 0) {
                 return;
             }
             
@@ -673,11 +678,25 @@
                 return;
             }
             
-            lastSendTime = now;
+            // Vérifier si une commande est déjà en cours
+            if (state.isBusy && retryCount === 0) {
+                return;
+            }
+            
+            state.lastCommandTime = now;
             lastKx = kx;
             lastKy = ky;
-
+            
             const result = calculateDirection(kx, ky);
+            
+            // Ne pas envoyer de commande si on est en mode stop et qu'aucune commande n'est en cours
+            if (result.direction === 'stop' && !state.currentDirection) {
+                return;
+            }
+            
+            state.currentDirection = result.direction;
+            state.isBusy = true;
+            
             statusDiv.textContent = `📡 Envoi: ${result.direction} (${result.speed}%)`;
             
             try {
@@ -689,6 +708,7 @@
                 else if (response.status === 'busy' && retryCount < MAX_RETRIES) {
                     statusDiv.textContent = `⏳ Robot occupé, réessai ${retryCount + 1}/${MAX_RETRIES}...`;
                     setTimeout(() => sendCommand(kx, ky, retryCount + 1), RETRY_DELAY);
+                    return; // Ne pas réinitialiser isBusy ici
                 }
                 else if (response.status === 'error') {
                     statusDiv.textContent = `❌ ${response.message || 'Erreur inconnue'}`;
@@ -697,6 +717,12 @@
             } catch (error) {
                 console.error('Erreur dans sendCommand:', error);
                 statusDiv.textContent = '🔴 Erreur de communication';
+            } finally {
+                // Réinitialiser l'état uniquement si ce n'est pas un réessai
+                if (retryCount === 0) {
+                    state.isBusy = false;
+                    state.currentDirection = null;
+                }
             }
         }
 
@@ -823,33 +849,77 @@
             }
         });
 
+        // État global pour la gestion du mode autonome
+        const state = {
+            isTransitioning: false,
+            autonomousMode: false,
+            lastCommandTime: 0,
+            commandCooldown: 100, // ms
+            currentDirection: null,
+            isBusy: false
+        };
+
         // Mode autonome
-        autonomousSwitch.onchange = function() {
+        autonomousSwitch.onchange = async function() {
+            if (state.isTransitioning) return;
+            
             const enabled = autonomousSwitch.checked;
+            state.isTransitioning = true;
+            autonomousSwitch.disabled = true;
             
-            const url = ROBOT_BASE_URL ? ROBOT_BASE_URL + '/autonomous_mode' : '/autonomous_mode';
+            statusDiv.textContent = enabled ? "🔄 Activation du mode autonome..." : "🔄 Désactivation du mode autonome...";
             
-            fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ enabled })
-            })
-            .then(response => response.json())
-            .then(data => {
+            // Désactiver toutes les commandes en attente
+            if (commandTimeout) {
+                clearTimeout(commandTimeout);
+                commandTimeout = null;
+            }
+            
+            try {
+                const url = ROBOT_BASE_URL ? ROBOT_BASE_URL + '/autonomous_mode' : '/autonomous_mode';
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled }),
+                    signal: AbortSignal.timeout(3000) // Timeout de 3 secondes
+                });
+                
+                const data = await response.json();
+                
                 if (data.status === 'success') {
+                    state.autonomousMode = enabled;
                     setAutonomousUI(enabled);
-                    statusDiv.textContent = data.message;
+                    statusDiv.textContent = data.message || (enabled ? "✅ Mode autonome activé" : "✅ Mode manuel activé");
                     updateConnectionStatus(true);
+                    
+                    // Réinitialisation complète après la transition
+                    if (!enabled) {
+                        resetKnob();
+                        // Réinitialiser l'état des commandes
+                        state.isBusy = false;
+                        state.currentDirection = null;
+                        state.lastCommandTime = 0;
+                        // Réactiver les commandes après un court délai
+                        setTimeout(() => {
+                            state.isTransitioning = false;
+                            autonomousSwitch.disabled = false;
+                        }, 500);
+                    }
                 } else {
-                    statusDiv.textContent = `❌ Erreur: ${data.message}`;
-                    autonomousSwitch.checked = !enabled;
+                    throw new Error(data.message || 'Erreur inconnue');
                 }
-            })
-            .catch(() => {
-                statusDiv.textContent = '🔴 Erreur de communication';
+            } catch (error) {
+                console.error('Erreur mode autonome:', error);
                 autonomousSwitch.checked = !enabled;
+                statusDiv.textContent = `❌ ${error.message || 'Erreur de communication'}`;
                 updateConnectionStatus(false);
-            });
+                
+                // Réactiver l'interface en cas d'erreur
+                state.autonomousMode = false;
+                setAutonomousUI(false);
+                state.isTransitioning = false;
+                autonomousSwitch.disabled = false;
+            }
         };
 
         // ===== INITIALISATION =====
@@ -862,38 +932,6 @@
         }
         
         console.log('🐕 RICO-X1 Controller Simple Flask - Initialisé');
-
-        async function toggleAutonomousMode() {
-            if (state.isTransitioning) return;
-            state.isTransitioning = true;
-            autonomousSwitch.disabled = true;
-            statusDiv.textContent = "⏳ Transition en cours...";
-            const previousMode = state.autonomousMode;
-            state.autonomousMode = autonomousSwitch.checked;
-            let timeoutId = setTimeout(() => {
-                state.isTransitioning = false;
-                autonomousSwitch.disabled = false;
-                statusDiv.textContent = "❌ Timeout lors du changement de mode";
-                autonomousSwitch.checked = previousMode;
-                state.autonomousMode = previousMode;
-            }, 5000);
-            const response = await fetch((getRobotBaseUrl() ? getRobotBaseUrl() : '') + '/autonomous_mode', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ enabled: state.autonomousMode })
-            });
-            clearTimeout(timeoutId);
-            const data = await response.json();
-            if (data.status === 'success') {
-                statusDiv.textContent = data.message;
-            } else {
-                autonomousSwitch.checked = previousMode;
-                state.autonomousMode = previousMode;
-                statusDiv.textContent = `❌ ${data.message}`;
-            }
-            state.isTransitioning = false;
-            autonomousSwitch.disabled = false;
-        }
 
         function resetJoysticks() {
             // ... code pour reset ...
